@@ -1,0 +1,10 @@
+# =============================================================================
+# requirements.txt - Python dependencies for Charlie MJ OCR & Language Studio
+# Install with:  pip install -r requirements.txt
+# =============================================================================
+
+customtkinter   # Modern dark/light themed widgets on top of Tkinter (the UI)
+pillow          # Image loading, screenshots, clipboard images, thumbnails
+pytesseract     # Python wrapper that calls the bundled Tesseract OCR engine
+requests        # HTTP client used for the optional Gemini AI REST calls
+pyinstaller     # Packages the app into a portable Windows .exe folder

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <!-- Charlie MJ OCR & Language Studio - hero banner (thumbnail) -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/><stop offset="1" stop-color="#1b1446"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3b82f6"/><stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <circle cx="1120" cy="80" r="220" fill="#8b5cf6" opacity="0.12"/>
+  <circle cx="120" cy="600" r="260" fill="#3b82f6" opacity="0.12"/>
+
+  <!-- Logo tile -->
+  <rect x="100" y="110" width="110" height="110" rx="26" fill="url(#accent)"/>
+  <text x="155" y="178" font-family="Segoe UI, Arial, sans-serif" font-size="42" font-weight="700" fill="#fff" text-anchor="middle">OCR</text>
+
+  <!-- Title block -->
+  <text x="240" y="160" font-family="Segoe UI, Arial, sans-serif" font-size="58" font-weight="700" fill="#ffffff">Charlie MJ OCR</text>
+  <text x="240" y="215" font-family="Segoe UI, Arial, sans-serif" font-size="38" fill="#a5b4fc">&amp; Language Studio</text>
+  <text x="100" y="300" font-family="Segoe UI, Arial, sans-serif" font-size="30" fill="#e2e8f0">Portable Windows OCR + AI tool for language learners</text>
+  <text x="100" y="345" font-family="Segoe UI, Arial, sans-serif" font-size="24" fill="#94a3b8">Turn flashcards and screenshots into clean, copy-ready study notes.</text>
+
+  <!-- Pipeline chips: Capture -> OCR -> Notes -> AI -> Export -->
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="600" fill="#fff" text-anchor="middle">
+    <rect x="100" y="420" width="180" height="60" rx="30" fill="#1e3a8a"/><text x="190" y="459">Capture</text>
+    <text x="305" y="459" fill="#64748b">→</text>
+    <rect x="330" y="420" width="150" height="60" rx="30" fill="#1e40af"/><text x="405" y="459">OCR</text>
+    <text x="505" y="459" fill="#64748b">→</text>
+    <rect x="530" y="420" width="170" height="60" rx="30" fill="#4c1d95"/><text x="615" y="459">Notes</text>
+    <text x="725" y="459" fill="#64748b">→</text>
+    <rect x="750" y="420" width="150" height="60" rx="30" fill="#6d28d9"/><text x="825" y="459">AI</text>
+    <text x="925" y="459" fill="#64748b">→</text>
+    <rect x="950" y="420" width="190" height="60" rx="30" fill="#7c3aed"/><text x="1045" y="459">Export</text>
+  </g>
+
+  <!-- Feature tags -->
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="22" fill="#cbd5e1" text-anchor="middle">
+    <text x="210" y="570">✓ Lightweight</text>
+    <text x="470" y="570">✓ Portable .exe</text>
+    <text x="730" y="570">✓ Offline OCR</text>
+    <text x="990" y="570">✓ Optional Gemini AI</text>
+  </g>
+</svg>

@@ -1,0 +1,60 @@
+# =============================================================================
+# build.yml - GitHub Actions workflow
+# Builds the portable Windows .exe in the cloud so no local setup is needed.
+#
+# How to use: open the repository's "Actions" tab -> "Build Windows portable EXE"
+# -> "Run workflow". When it finishes, download the artifact at the bottom of
+# the run page: CharlieMJ-OCR-Portable (a .zip containing the .exe folder).
+# =============================================================================
+
+name: Build Windows portable EXE
+
+# Triggers: manual button press, and every push to the main branch
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    # A Windows runner is required because PyInstaller cannot cross-compile
+    runs-on: windows-latest
+
+    steps:
+      # 1. Download this repository's code onto the runner
+      - uses: actions/checkout@v4
+
+      # 2. Install Python 3.11
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # 3. Install the Tesseract OCR engine using Chocolatey (preinstalled on runner)
+      - name: Install Tesseract
+        run: choco install tesseract -y --no-progress
+
+      # 4. Copy Tesseract into ./tesseract and add language data for
+      #    English, Turkish, Urdu, Arabic and Persian (small "fast" models)
+      - name: Prepare bundled Tesseract + language data
+        shell: pwsh
+        run: |
+          Copy-Item "C:\Program Files\Tesseract-OCR" -Destination tesseract -Recurse
+          $base = "https://github.com/tesseract-ocr/tessdata_fast/raw/main"
+          foreach ($l in "eng","tur","urd","ara","fas") {
+            Invoke-WebRequest "$base/$l.traineddata" -OutFile "tesseract\tessdata\$l.traineddata"
+          }
+
+      # 5. Build the .exe with PyInstaller, add Tesseract beside it, zip the result
+      - name: Build EXE
+        shell: pwsh
+        run: |
+          pip install -r requirements.txt
+          pyinstaller --noconsole --onedir --name CharlieMJ-OCR --collect-all customtkinter main.py
+          Copy-Item tesseract -Destination dist\CharlieMJ-OCR\tesseract -Recurse
+          Compress-Archive -Path dist\CharlieMJ-OCR -DestinationPath CharlieMJ-OCR-Portable.zip
+
+      # 6. Publish the zip so it can be downloaded from the run page
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CharlieMJ-OCR-Portable
+          path: CharlieMJ-OCR-Portable.zip

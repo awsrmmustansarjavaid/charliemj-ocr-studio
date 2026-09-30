@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="620" viewBox="0 0 1100 620">
+  <!-- Layered architecture of Charlie MJ OCR & Language Studio -->
+  <rect width="1100" height="620" fill="#0f172a"/>
+  <g font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">
+    <text x="550" y="50" font-size="30" font-weight="700" fill="#fff">Architecture Overview</text>
+
+    <!-- Layer 1: UI -->
+    <rect x="60" y="85" width="980" height="110" rx="14" fill="#1e3a8a"/>
+    <text x="550" y="120" font-size="22" font-weight="700" fill="#fff">Presentation layer  ·  CustomTkinter</text>
+    <text x="550" y="155" font-size="18" fill="#bfdbfe">Image queue  |  Preview  |  Notes editor  |  Settings window  |  Status bar</text>
+
+    <!-- Layer 2: Logic -->
+    <rect x="60" y="215" width="980" height="110" rx="14" fill="#4c1d95"/>
+    <text x="550" y="250" font-size="22" font-weight="700" fill="#fff">Application logic  ·  App class (main.py)</text>
+    <text x="550" y="285" font-size="18" fill="#ddd6fe">Queue &amp; batch limit  |  Screenshot snipper  |  Markdown formatting  |  Copy / Export  |  Threading</text>
+
+    <!-- Layer 3: Services -->
+    <rect x="60" y="345" width="480" height="110" rx="14" fill="#065f46"/>
+    <text x="300" y="385" font-size="22" font-weight="700" fill="#fff">Local services</text>
+    <text x="300" y="420" font-size="18" fill="#a7f3d0">ocr_image()  ·  config.json  ·  Pillow</text>
+    <rect x="560" y="345" width="480" height="110" rx="14" fill="#9a3412"/>
+    <text x="800" y="385" font-size="22" font-weight="700" fill="#fff">Optional cloud service</text>
+    <text x="800" y="420" font-size="18" fill="#fed7aa">gemini()  ·  prompt table (ACTIONS)</text>
+
+    <!-- Layer 4: External -->
+    <rect x="60" y="475" width="480" height="100" rx="14" fill="#14532d"/>
+    <text x="300" y="515" font-size="22" font-weight="700" fill="#fff">Tesseract OCR engine</text>
+    <text x="300" y="548" font-size="18" fill="#bbf7d0">Bundled · offline · tur / urd / ara / fas / eng</text>
+    <rect x="560" y="475" width="480" height="100" rx="14" fill="#7c2d12"/>
+    <text x="800" y="515" font-size="22" font-weight="700" fill="#fff">Google Gemini API</text>
+    <text x="800" y="548" font-size="18" fill="#fdba74">HTTPS · user-supplied key · only on click</text>
+  </g>
+</svg>
