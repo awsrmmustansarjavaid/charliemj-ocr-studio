@@ -1,67 +1,60 @@
 # Features
 
-[← Back to main README](../README.md) · Previous: [Overview](PROJECT_OVERVIEW.md) · Next: [Technologies](TECHNOLOGIES.md)
+[← Main README](../README.md) · Previous: [Overview](PROJECT_OVERVIEW.md) · Next: [Smart OCR](SMART_OCR.md)
 
-![UI concept](../assets/ui-mockup.png)
+![App screenshot](../assets/app-screenshot.png)
 
-*Design mockup of the full vision. Version 1 implements the capture, OCR, notes and AI screens; the remaining screens are on the [Roadmap](ROADMAP.md).*
+*A real screenshot of version 1.1: the card grid on the left was turned into the table on the right.*
 
-## Implemented in v1
-
-### 1. Image input
+## 1. Image input
 | Feature | Description |
 |---------|-------------|
-| Add Images | Multi-select file dialog (PNG, JPG, JPEG, WEBP, BMP, TIFF) |
+| Add Images | Multi-select dialog (PNG, JPG, JPEG, WEBP, BMP, TIFF) |
 | Add Folder | Adds every supported image in a folder, up to the batch limit |
-| Paste Image | Pastes a bitmap from the clipboard (e.g. after `Win+Shift+S`) or copied image files; `Ctrl+V` also works |
-| Screenshot | Hides the window, freezes the screen, and lets you drag a rectangle; `Esc` cancels |
+| Paste Image | Bitmap from the clipboard (e.g. after `Win+Shift+S`) or copied image files; `Ctrl+V` works too |
+| Screenshot | Hides the window, freezes the screen, drag a rectangle; `Esc` cancels |
 
-### 2. Image queue
-- Thumbnail card for each image with a status: **Waiting → Working → Done / Error**.
-- Live counter: `Batch: 7 / 20`.
-- **Batch limit** selectable in Settings (5, 10, 20, 50, 100); a warning appears when it is reached.
-- **Remove Selected** (tick the checkboxes, or the previewed image), **Remove All** (with confirmation), **Undo**.
-- **Process All** runs OCR on every pending image in a background thread; a failure on one image does not stop the rest.
+## 2. Image queue
+- Numbered cards (**1., 2., 3., …**) with thumbnail and status: Waiting → Working → Done / Error.
+- Counter `Batch: 7 / 20`; limit selectable (5–100) in Settings.
+- **▲ ▼** buttons reorder images. **Remove Selected / Remove All / Undo** (restores the old positions).
+- **Process All** OCRs every pending image in the background and shows progress (`Processing 3 / 20`). One failing image never stops the batch.
 
-### 3. Local OCR
-- Powered by bundled **Tesseract**; works **offline**.
-- Languages: Turkish, Urdu, Arabic, Persian, English (mixed with English for better accuracy).
-- Automatic pre-processing: grayscale, auto-contrast, 2× upscale of small images.
+## 3. Smart OCR (the main feature)
+- Reads **word positions and confidence**, not just text → [details](SMART_OCR.md).
+- Detects **bilingual tables** (label + translation under it, or two columns), titles/subtitles, and plain paragraphs.
+- Puts the **learning language in column 1** and the translation in column 2 (script/letter hints, with a **⇄ Swap** button).
+- Removes UI noise (icons, clock, stray symbols) and re-reads each cell with its own language model so letters like **ş ı ğ ç ü ö** come out right.
+- **Raw mode** gives plain OCR text when you do not want structure.
 
-### 4. Notes editor
-- Buttons: **Title, H1, H2, H3, Bullet, Numbered list, Bold, Italic, Separator line, Undo, Redo**.
-- Uses Markdown syntax (`#`, `##`, `-`, `**bold**`), so notes stay readable anywhere.
-- Each OCR result is appended under a `## filename` heading.
+## 4. One result card per image
+- Title **Image 1, Image 2, …** (numbers follow the queue; deleting or reordering renumbers automatically).
+- Thumbnail, file name and status beside each title.
+- Per-image buttons: **Copy, ↻ Smart, ↻ Raw, ⇄ Swap, 🗑 Delete**.
+- Each result is its own **editable** text box; a horizontal separator line sits between images.
+- **🧩 Combine All OCR** joins everything with `## Image N`, the file name, and `---` between images.
 
-### 5. Copy and export
-| Button | What it does |
-|--------|--------------|
-| Copy Selected | Copies only the highlighted text |
-| Copy All | Copies all notes (Markdown) |
-| Copy Plain | Copies notes without Markdown symbols |
-| Copy Original OCR | Copies the raw OCR text before any editing/AI |
-| Save / Export TXT / Export CSV | `.md`, `.txt`, or `Front,Back` CSV for Anki |
+## 5. Notes editing
+Title, H1–H3, bullet, numbered list, bold, italic, separator line, undo/redo — acting on whichever box you last clicked. Markdown tables are padded so they stay aligned in the monospace boxes.
 
-The CSV exporter detects lines shaped like `- **word** — meaning` and **removes duplicates**.
-
-### 6. Optional AI (Google Gemini)
+## 6. Copy and export
 | Button | Result |
 |--------|--------|
-| ✨ Learn This | Title, cleaned text, translation, vocabulary, grammar note |
-| Clean | Fixes OCR errors and organises text into headings/bullets (replaces the selection) |
-| Translate | Translates into your chosen language |
-| Explain | Meaning, pronunciation, base form, part of speech, examples |
-| Vocabulary | Level-appropriate word list |
-| Flashcards | Front/back cards ready for CSV export |
-| 🤖 AI OCR | Sends the image to Gemini vision — useful for difficult fonts or scripts |
+| Copy (per image) | That image's result |
+| Copy Selected | Highlighted text of the active box |
+| Copy All | All images, numbered, separated by `---` |
+| Copy Plain | Same without Markdown symbols and table pipes |
+| Copy Original OCR | The untouched OCR text of every image |
+| Save (.md) / Export TXT / Export CSV | CSV columns: `Image, <language>, <translation>`, duplicates removed |
 
-AI acts on the **selected text** (or everything if nothing is selected). See the [AI Guide](AI_GUIDE.md).
+## 7. Optional local AI (Ollama)
+✨ Learn This · Clean · Translate · Explain · Vocabulary · Flashcards · 📊 Table · 🤖 AI OCR (vision). Runs on your PC, localhost only → [Local AI guide](LOCAL_AI.md). A status line shows whether Ollama is reachable, and Settings has a **connection test**.
 
-### 7. Settings
-Learning language, your language, level, batch limit, theme (dark/light), Gemini API key and model — saved to `config.json` next to the app.
+## 8. Settings
+Learning language, your language, level, default OCR mode, minimum OCR confidence, batch limit, theme, local-AI address and model. Saved in `config.json` beside the app.
 
-### 8. Portability
-Runs from any folder or USB drive on Windows; no installer or admin rights.
+## 9. Portable and private
+No installer, no admin rights, no telemetry, no cloud, no startup entry → [Security](SECURITY.md).
 
-## Planned (not in v1)
-Vocabulary library with Know / Learning tracking, flashcard review with spaced repetition, progress dashboard, pronunciation practice, global hotkey capture, drag-and-drop, PDF OCR, and more — see the [Roadmap](ROADMAP.md).
+## Not in v1.1
+Drag-and-drop, global hotkey, vocabulary library, spaced repetition, text-to-speech — see the [Roadmap](ROADMAP.md).

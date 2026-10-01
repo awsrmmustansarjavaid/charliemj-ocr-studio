@@ -1,56 +1,50 @@
 # Project Overview
 
-[← Back to main README](../README.md) · Next: [Features](FEATURES.md)
+[← Main README](../README.md) · Next: [Features](FEATURES.md)
 
 ## What is this program?
 
-**Charlie MJ OCR & Language Studio** is a lightweight, portable Windows desktop application. It extracts text from pictures — flashcards, screenshots, subtitles, textbook pages — and turns that text into clean, structured study notes with titles, headings and bullet lists. Notes can be copied or exported in one click, and an optional AI layer (Google Gemini) can clean, translate, explain and convert the text into vocabulary and flashcards.
+**Charlie MJ OCR & Language Studio** is a lightweight, portable Windows desktop application for language learners. It reads text from pictures (flashcards, social-media vocabulary posts, textbook pages, screenshots) and — unlike an ordinary OCR tool — **understands the layout**. A card that shows a Turkish word with its English translation underneath becomes a row in a clean two-column table, not a jumble of words.
 
-It ships as a **folder with one `.exe`**. There is no installer: copy the folder to your Desktop or a USB drive and run it.
+It ships as **one folder with an `.exe`**: no installer, OCR works fully offline, and the optional AI runs **locally on your own PC** (through Ollama) — nothing is sent to the cloud.
 
 ## Why was it built?
 
-The author is learning several languages (Turkish, Urdu, Arabic, Persian, English) and downloads many flashcard images. The original workflow looked like this:
+The author learns several languages (Turkish, Urdu, Arabic, Persian, English) from downloaded flashcards. The old workflow was:
 
-1. Look at a flashcard image.
-2. **Type every word by hand** into a notes document, or paste the image into Gemini and copy the answer back.
-3. Format the notes manually (titles, headings, bullets).
-4. Repeat for every card.
+1. Look at a flashcard image and **type every word by hand**, or ask an online AI and paste the answer back.
+2. Format the notes manually.
+3. Repeat for dozens of images.
 
-That is slow and discourages studying. The goal of this project is to remove the typing so the learner can **focus on learning, not data entry**.
+The first version of this tool added OCR, but the result was **messy**: plain OCR returns one long string and destroys the relationship between words ("kışlık eldiven" and "winter gloves" end up in different places). Version 1.1 fixes the root cause by keeping **word positions** and rebuilding the structure.
+
+![Before and after](../assets/smart-ocr-before-after.png)
 
 ## Goals
 
 | Goal | How it is met |
 |------|---------------|
-| Remove manual typing | Screenshot / paste / add images → automatic OCR |
-| Produce tidy notes | Markdown-style editor with title, H1–H3, bullets, numbering |
-| Easy copying | Separate buttons: Copy Selected, Copy All, Copy Plain, Copy Original OCR |
-| Handle many images | Batch queue with a configurable limit (default 20) and Process All |
-| Fix mistakes easily | Remove Selected, Remove All, Undo Remove |
-| Save learning time | Optional AI: Learn This, Clean, Translate, Explain, Vocabulary, Flashcards |
-| Stay lightweight | Python + Tkinter + Tesseract; no local AI models, no Electron |
-| Stay portable | One folder, config saved beside the `.exe`, no installer or admin rights |
+| No manual typing | Screenshot / paste / add images → OCR |
+| No messy output | **Smart OCR**: word positions → pairs → aligned table |
+| Easy to review | One card per image: **Image 1, Image 2, …** with separators |
+| Handle batches | Queue (default 20), Process All, reorder, delete, undo |
+| Easy copying | Copy per image, selected, all, plain, original OCR |
+| Private & safe | Offline OCR, local AI only (localhost), no telemetry, pinned dependencies |
+| Lightweight & portable | Python + Tkinter + Tesseract; no Electron, no bundled AI models |
 
-## Non-goals (for v1)
+## Non-goals (for now)
 
-- Not a full spaced-repetition system (planned — see [Roadmap](ROADMAP.md)).
-- Not a cloud service: there is no account, server or database.
-- Not a replacement for a dedicated dictionary; AI answers should be double-checked.
-
-## Who is it for?
-
-Language learners, students and anyone who regularly needs to turn images of text into editable, organised notes without installing heavy software.
+- Not a full spaced-repetition app (see [Roadmap](ROADMAP.md)).
+- Not a cloud service: no account, server or database.
+- Not a dictionary — AI answers must be double-checked.
 
 ## Design principles
 
-1. **Local first** – OCR works fully offline.
-2. **AI is optional** – it only runs when you click, on the text you select, so you control quota and privacy.
-3. **Every step is optional** – you can just do *Screenshot → OCR → Copy*, or use the full *Learn This* flow.
-4. **Simple UI** – primary actions always visible, nothing buried in menus.
-5. **Portable** – no registry entries, no installer, settings live next to the app.
+1. **Extract, then understand, then organise.** OCR extracts words with positions; a deterministic layout step finds structure; AI is only an optional helper. AI never silently rewrites OCR.
+2. **Local first.** OCR and AI both run on your PC.
+3. **Every step is optional.** Screenshot → OCR → Copy works in two clicks.
+4. **Never lose the original.** Raw mode and "Copy Original OCR" always give the untouched text.
+5. **Portable and unsurprising.** Settings live next to the `.exe`; nothing is installed or registered.
 
 ## Related documents
-
-- [Features](FEATURES.md) · [Technologies](TECHNOLOGIES.md) · [Architecture](ARCHITECTURE.md)
-- [Installation](INSTALLATION.md) · [User Guide](USER_GUIDE.md) · [AI Guide](AI_GUIDE.md) · [Roadmap](ROADMAP.md)
+[Features](FEATURES.md) · [Smart OCR](SMART_OCR.md) · [Local AI](LOCAL_AI.md) · [Technologies](TECHNOLOGIES.md) · [Architecture](ARCHITECTURE.md) · [Installation](INSTALLATION.md) · [User Guide](USER_GUIDE.md) · [Security](SECURITY.md) · [Testing](TESTING.md) · [Roadmap](ROADMAP.md)

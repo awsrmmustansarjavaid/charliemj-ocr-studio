@@ -1,157 +1,138 @@
 # Architecture
 
-[← Back to main README](../README.md) · Previous: [Technologies](TECHNOLOGIES.md) · Next: [Installation](INSTALLATION.md)
+[← Main README](../README.md) · Previous: [Technologies](TECHNOLOGIES.md) · Next: [Installation](INSTALLATION.md)
 
 ![Architecture](../assets/architecture.svg)
 
-## 1. High-level data flow
+## 1. Module map
+
+```text
+main.py                 entry point (DPI awareness, starts the window)
+app/
+ ├── config.py          settings file (config.json), paths, constants
+ ├── layout.py          PURE logic: segments → pairs → table → Markdown   (unit-tested)
+ ├── ocr_engine.py      Tesseract: words with boxes, cell re-read, raw text
+ ├── local_ai.py        Ollama over localhost (urllib), status/diagnostics
+ └── ui.py              CustomTkinter window, queue, result cards, export
+tests/                  unit tests (layout) + headless UI smoke test
+```
+
+Dependency direction: `ui → (layout, ocr_engine, local_ai, config)`, `ocr_engine → (layout.Word, config)`. `layout.py` imports nothing from the app, so it can be tested without OCR or a display.
+
+## 2. Data flow
 
 ```mermaid
 flowchart LR
-    A["Input<br/>files · folder · clipboard · screenshot"] --> B["Image queue<br/>(batch limit)"]
-    B --> C["Pre-processing<br/>grayscale · contrast · upscale"]
-    C --> D["Tesseract OCR<br/>(local, offline)"]
-    D --> E["Notes editor<br/>(Markdown)"]
-    E -->|"click AI button<br/>selected text only"| F["Gemini API<br/>(optional, online)"]
-    F --> E
-    E --> G["Copy buttons"]
-    E --> H["Export<br/>MD · TXT · CSV"]
-    B -.->|"AI OCR button"| F
+    A["Input<br/>files · folder · clipboard · screenshot"] --> B["Image queue<br/>(numbered, limit)"]
+    B --> C["ocr_engine<br/>words + boxes"]
+    C --> D["layout.analyze()<br/>pairs · title · table"]
+    D --> E["Result card per image<br/>(editable Markdown)"]
+    E --> F["Combine All OCR"]
+    E --> G["Copy / Export"]
+    E -.->|"optional, selected text"| H["local_ai → Ollama"]
+    B -.->|"AI OCR"| H
+    H -.-> E
 ```
 
-The solid path (input → OCR → editor → copy/export) needs **no internet**. The dashed/AI paths are optional.
+Solid paths need no AI and no internet. Dashed paths are optional and local.
 
-## 2. Layers
-
-| Layer | Responsibility | Where in code |
-|-------|----------------|---------------|
-| Presentation | Widgets: queue, preview, editor, toolbars, settings, status bar | `App.build_queue/build_preview/build_notes/settings` |
-| Application logic | Queue management, screenshot snipper, Markdown helpers, export, threading | `App` methods |
-| Services | `ocr_image()` (Tesseract), `gemini()` (HTTP), `load_cfg()/save_cfg()` | module-level functions in `main.py` |
-| External | Tesseract executable + `.traineddata`; Gemini REST endpoint | `tesseract/` folder; `generativelanguage.googleapis.com` |
-
-## 3. Main components
-
-```mermaid
-classDiagram
-    class App {
-        +items: list
-        +removed: list
-        +current: int
-        +raw: str
-        +add_image()
-        +paste()
-        +snip()
-        +process_all()
-        +ocr_current()
-        +ai_action()
-        +export()
-        +settings()
-        +bg()
-    }
-    class Services {
-        +ocr_image(img)
-        +gemini(prompt, image)
-        +load_cfg()
-        +save_cfg()
-    }
-    class ACTIONS {
-        <<prompt table>>
-        Learn This
-        Clean
-        Translate
-        Explain
-        Vocabulary
-        Flashcards
-    }
-    App --> Services : calls
-    App --> ACTIONS : builds prompts
-```
-
-### Queue item (in-memory record)
+## 3. The item model (single source of truth)
 
 ```text
-{ img: PIL.Image, name: str, status: waiting|working|done|error,
-  text: str, th: thumbnail, sel: BooleanVar }
+item = { img, name, status, th (thumbnail), sel (checkbox),
+         md   : the Markdown shown/edited in the card,
+         raw  : untouched OCR text,
+         res  : layout.Result (kept so ⇄ Swap can re-render),
+         swap : bool,
+         tb   : the card's text box while visible }
 ```
 
-## 4. Concurrency model
+- The queue list `App.items` defines order → **"Image N" = position N**. Reordering or deleting renumbers instantly because titles are computed from the index when cards are rebuilt.
+- Cards are only a **view**: `save_cards()` copies their text back into `md` before any rebuild or export. When a fresh result arrives, `it["tb"]` is cleared first so a stale text box can never overwrite it (a bug the smoke test caught).
 
-Tkinter is **single-threaded**: only the main thread may touch widgets. Slow work (OCR, network) must not block it, so:
+## 4. Threading model
+
+Tkinter is single-threaded. Worker threads **never touch widgets**; they hand callables to the UI thread through a queue:
 
 ```mermaid
 sequenceDiagram
     participant UI as UI thread (Tk)
     participant W as Worker thread
     UI->>W: bg(fn, done)
-    Note over UI: window stays responsive
-    W->>W: run OCR / call Gemini
-    W-->>UI: self.after(0, done(result))
-    UI->>UI: update editor / status bar
+    UI->>UI: poll() every 50 ms
+    W->>W: OCR / call Ollama
+    W-->>UI: post(lambda: done(result))   (queue.Queue)
+    UI->>UI: poll() runs it → updates cards / status bar
 ```
 
-- `App.bg()` starts a daemon thread and posts the result back with `self.after(0, …)`.
-- Exceptions are caught and shown in the status bar instead of crashing.
-- `Process All` uses one worker thread that processes images sequentially.
+`Process All` uses one worker that handles images one by one and posts progress messages; one failing image is marked **Error** and the batch continues.
 
-## 5. Screenshot capture
+## 5. Smart OCR
 
-1. `snip()` hides the main window and waits 350 ms.
-2. `ImageGrab.grab()` captures the screen.
-3. A full-screen `Toplevel` shows the frozen capture on a `Canvas`.
-4. Mouse down/drag/up draws and finalises the rectangle.
-5. The selection is scaled from canvas to real pixels (`k = shot.width / screen_width`), cropped, and added to the queue.
+See [Smart OCR](SMART_OCR.md) for the full algorithm. In short: `read_words` → `build_segments` → `drop_noise` → `vertical_pairs` / `horizontal_pairs` → `_orient` → title extraction → cell `refine` → `_reading_order` → `to_markdown`.
 
-High-DPI support comes from `SetProcessDpiAwareness(1)`, which makes Windows report true pixel sizes.
+The `refine` callback is injected into `analyze()` by the UI, keeping `layout.py` free of OCR dependencies.
 
-## 6. Configuration and storage
+## 6. Screenshot capture
 
-| Item | Location | Notes |
-|------|----------|-------|
-| Settings | `config.json` next to the `.exe` | Contains the API key; **git-ignored** |
-| Tesseract | `tesseract/` next to the `.exe` | Located through `BASE`; `TESSDATA_PREFIX` is set at start-up |
-| Images & notes | Memory only | Nothing persists until you Save/Export |
+`snip()` hides the window → `ImageGrab.grab()` → a full-screen `Toplevel` shows the frozen picture → mouse drag draws the rectangle → coordinates are scaled to real pixels (`k = shot.width / screen_width`) → crop is added to the queue. DPI awareness is enabled in `main.py`.
 
-`BASE` is `dirname(sys.executable)` when frozen by PyInstaller, otherwise the script folder — so the same code runs in development and as an `.exe`.
-
-## 7. AI integration
+## 7. Local AI
 
 ```mermaid
 flowchart TD
-    S["Selected text (or all notes)"] --> P["ACTIONS[name] builds prompt<br/>ctx() adds language + level"]
-    P --> G["gemini(prompt)"]
-    G --> R{"mode"}
-    R -->|replace| X["Replace selection / notes"]
-    R -->|append| Y["Append below notes"]
+    S["Selected text (or whole active box)"] --> P["ACTIONS[name] builds the prompt<br/>ctx() adds language + level + 'never invent'"]
+    P --> G["local_ai.generate()"]
+    G --> C{"address local?"}
+    C -->|no| X["refuse"]
+    C -->|yes| O["POST /api/generate on 127.0.0.1"]
+    O --> R{"mode"}
+    R -->|replace| Y["replace selection / box"]
+    R -->|append| Z["append below"]
 ```
 
-Vocabulary is requested in one strict shape — `- **word** — meaning` — which the CSV exporter parses. Details: [AI Guide](AI_GUIDE.md).
+`local_ai.status()` powers both the status-bar indicator and the Settings connection test.
 
-## 8. Build and release pipeline
+## 8. Configuration and storage
+
+| Item | Location | Notes |
+|------|----------|-------|
+| Settings | `config.json` beside the `.exe` | No secrets any more; git-ignored anyway |
+| Tesseract | `tesseract/` beside the `.exe` | `TESSDATA_PREFIX` is set at start-up |
+| Images, results | Memory only | Nothing is saved until you Save/Export |
+
+`BASE` is `dirname(sys.executable)` when frozen, otherwise the project folder, so the same code runs from source and as an `.exe`.
+
+## 9. Build and release pipeline
 
 ```mermaid
 flowchart LR
-    A["Push to GitHub"] --> B["Actions: windows-latest"]
-    B --> C["Install Python 3.11 + Tesseract"]
-    C --> D["Download language data<br/>tur · urd · ara · fas · eng"]
-    D --> E["PyInstaller --onedir"]
-    E --> F["Copy tesseract/ beside .exe"]
-    F --> G["Zip → downloadable artifact"]
+    A["Push / Run workflow"] --> B["windows-latest"]
+    B --> C["Python 3.11 + Tesseract"]
+    C --> D["Language data tur · urd · ara · fas · eng<br/>(fail if missing)"]
+    D --> E["pip install pinned deps"]
+    E --> F["unit tests"]
+    F --> G["PyInstaller --onedir --noupx<br/>+ version info"]
+    G --> H["Defender scan"]
+    H --> I["SHA256SUMS.txt + zip → artifact"]
 ```
 
-## 9. Error handling
+## 10. Error handling
 
 | Situation | Behaviour |
 |-----------|-----------|
-| Batch limit reached | Warning dialog; image not added |
+| Batch limit reached | Warning; image not added |
+| Unreadable image file | Skipped with a status message |
 | OCR fails on one image | Card marked **Error**; batch continues |
-| No API key / network error | Message in status bar; app keeps working |
-| Nothing selected for AI | Uses all notes; if empty, shows "Nothing to send to AI" |
+| Ollama not running / model missing | Clear message in the status bar; everything else keeps working |
+| Non-local AI address | Refused (privacy guard) |
 | Missing `config.json` | Defaults are used |
+| A UI callback raises | Caught in `poll()`; shown in the status bar; the loop continues |
 
-## 10. Extension points
+## 11. Extension points
 
-- **New AI action:** add an entry to `ACTIONS`; a button appears automatically.
-- **New OCR language:** add the `.traineddata` file and an entry in `LANGS`.
-- **New export format:** add a branch in `App.export()`.
-- **Alternative OCR engine:** replace the body of `ocr_image()` (e.g. RapidOCR).
+- **New AI action:** add an entry to `ACTIONS` in `ui.py`; a button appears.
+- **New OCR language:** add `.traineddata` and an entry in `config.LANGS`.
+- **New layout rule:** add a function in `layout.py` and a unit test.
+- **Other OCR engine:** implement `read_words`/`make_refiner` in `ocr_engine.py` with the same return types.
+- **New export:** add a branch in `App.export()`.

@@ -1,10 +1,11 @@
 # =============================================================================
 # build.yml - GitHub Actions workflow
-# Builds the portable Windows .exe in the cloud so no local setup is needed.
+# Builds the portable Windows .exe in the cloud so no local setup is needed, and
+# does it transparently (you can read every step) with several safety checks.
 #
 # How to use: open the repository's "Actions" tab -> "Build Windows portable EXE"
 # -> "Run workflow". When it finishes, download the artifact at the bottom of
-# the run page: CharlieMJ-OCR-Portable (a .zip containing the .exe folder).
+# the run page: CharlieMJ-OCR-Portable (a .zip with the app + SHA256SUMS.txt).
 # =============================================================================
 
 name: Build Windows portable EXE
@@ -14,6 +15,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+
+# Least privilege: this workflow only needs to read the repository
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -29,7 +34,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      # 3. Install the Tesseract OCR engine using Chocolatey (preinstalled on runner)
+      # 3. Install the Tesseract OCR engine using Chocolatey (preinstalled on the runner)
       - name: Install Tesseract
         run: choco install tesseract -y --no-progress
 
@@ -43,17 +48,48 @@ jobs:
           foreach ($l in "eng","tur","urd","ara","fas") {
             Invoke-WebRequest "$base/$l.traineddata" -OutFile "tesseract\tessdata\$l.traineddata"
           }
+          # Fail early if a language is missing
+          $langs = & "tesseract\tesseract.exe" --list-langs
+          foreach ($l in "eng","tur","urd","ara","fas") {
+            if ($langs -notcontains $l) { throw "Language $l is missing" }
+          }
 
-      # 5. Build the .exe with PyInstaller, add Tesseract beside it, zip the result
+      # 5. Install the PINNED dependencies and run the unit tests (build stops if they fail)
+      - name: Install dependencies and test
+        shell: pwsh
+        run: |
+          pip install -r requirements-build.txt
+          python -m unittest discover -s tests -v
+
+      # 6. Build the .exe. --noupx avoids UPX compression (a common antivirus trigger);
+      #    --version-file embeds publisher/product details in the exe.
       - name: Build EXE
         shell: pwsh
         run: |
-          pip install -r requirements.txt
-          pyinstaller --noconsole --onedir --name CharlieMJ-OCR --collect-all customtkinter main.py
+          pyinstaller --noconfirm --noconsole --onedir --noupx --name CharlieMJ-OCR `
+            --version-file version_info.txt --collect-all customtkinter main.py
           Copy-Item tesseract -Destination dist\CharlieMJ-OCR\tesseract -Recurse
+
+      # 7. Scan the result with Microsoft Defender on the runner (informational:
+      #    a runner problem must not hide the build, so errors do not fail the job)
+      - name: Defender scan
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          & "$env:ProgramFiles\Windows Defender\MpCmdRun.exe" -Scan -ScanType 3 -File "$PWD\dist\CharlieMJ-OCR" -DisableRemediation
+          Write-Host "Defender exit code: $LASTEXITCODE (0 = no threats found)"
+
+      # 8. Publish SHA256 checksums of every file, so the download can be verified
+      - name: Checksums and zip
+        shell: pwsh
+        run: |
+          Get-ChildItem dist\CharlieMJ-OCR -Recurse -File |
+            Get-FileHash -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash)  $($_.Path.Substring($PWD.Path.Length + 1))" } |
+            Set-Content dist\CharlieMJ-OCR\SHA256SUMS.txt
           Compress-Archive -Path dist\CharlieMJ-OCR -DestinationPath CharlieMJ-OCR-Portable.zip
 
-      # 6. Publish the zip so it can be downloaded from the run page
+      # 9. Make the zip downloadable from the run page
       - uses: actions/upload-artifact@v4
         with:
           name: CharlieMJ-OCR-Portable

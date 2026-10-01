@@ -1,0 +1,6 @@
+# =============================================================================
+# requirements-build.txt - extra tools needed ONLY to build the .exe
+# (used by build.bat and the GitHub Actions workflow; not needed to run from source)
+# =============================================================================
+-r requirements.txt
+pyinstaller==6.16.0    # Packages the app into a portable Windows folder with an .exe

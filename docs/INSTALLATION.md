@@ -1,18 +1,16 @@
 # Installation & Building the `.exe`
 
-[← Back to main README](../README.md) · Previous: [Architecture](ARCHITECTURE.md) · Next: [User Guide](USER_GUIDE.md)
+[← Main README](../README.md) · Previous: [Architecture](ARCHITECTURE.md) · Next: [User Guide](USER_GUIDE.md)
 
-There are three ways to get the app. **Option A is easiest** — nothing to install.
+**Option A is easiest** — nothing to install. If antivirus worries you, read [Security](SECURITY.md) first.
 
 ## Option A — Build in the cloud with GitHub Actions (recommended)
 
-1. Create a GitHub account and upload this repository (keep the `.github` folder).
+1. Create a GitHub account and upload this repository (keep the hidden `.github` folder).
 2. Open the **Actions** tab → **Build Windows portable EXE** → **Run workflow**.
-3. Wait 5–10 minutes for a green tick.
-4. Open the finished run, scroll to **Artifacts**, download **CharlieMJ-OCR-Portable**.
-5. Unzip it and run `CharlieMJ-OCR.exe`.
-
-The workflow (`.github/workflows/build.yml`) installs Python and Tesseract, downloads the language data, runs PyInstaller, and zips the result.
+3. Wait ~5–10 minutes for a green tick. The run installs everything, **runs the tests**, builds without UPX, scans with Microsoft Defender and writes checksums.
+4. Open the finished run → **Artifacts** → download **CharlieMJ-OCR-Portable**.
+5. Unzip it and run `CharlieMJ-OCR.exe`. Compare `SHA256SUMS.txt` if you want to verify files.
 
 ## Option B — Build on your own PC
 
@@ -22,16 +20,13 @@ The workflow (`.github/workflows/build.yml`) installs Python and Tesseract, down
 - Tesseract for Windows (UB Mannheim build)
 
 ### Steps
-1. Install Tesseract. Inside the project folder create a folder named `tesseract`.
-2. Copy everything from `C:\Program Files\Tesseract-OCR\` into `tesseract\` (the `.exe` and all `.dll` files).
-3. Put these files in `tesseract\tessdata\` (the small *tessdata_fast* versions are fine):
-   `eng.traineddata`, `tur.traineddata`, `urd.traineddata`, `ara.traineddata`, `fas.traineddata`
-   — download from <https://github.com/tesseract-ocr/tessdata_fast>.
-4. Double-click **`build.bat`**.
+1. Install Tesseract. In the project folder create a folder named `tesseract`.
+2. Copy everything from `C:\Program Files\Tesseract-OCR` into `tesseract` (the `.exe` and all `.dll` files).
+3. Put these files in `tesseract\tessdata` (the small *tessdata_fast* versions are fine): `eng`, `tur`, `urd`, `ara`, `fas` `.traineddata` — from <https://github.com/tesseract-ocr/tessdata_fast>.
+4. Double-click **`build.bat`** (installs pinned packages, runs tests, builds, copies Tesseract, writes a checksum).
 5. Your app is in `dist\CharlieMJ-OCR\CharlieMJ-OCR.exe`.
 
-Final folder layout:
-
+Final layout:
 ```text
 CharlieMJ-OCR/
 ├── CharlieMJ-OCR.exe
@@ -39,37 +34,33 @@ CharlieMJ-OCR/
 ├── tesseract/
 │   ├── tesseract.exe
 │   └── tessdata/         (*.traineddata)
-└── config.json           (created on first Save in Settings)
+├── SHA256SUMS.txt
+└── config.json           (created when you press Save in Settings)
 ```
 
-## Option C — Run from source (for development)
+## Option C — Run from source (no `.exe` at all)
 
 ```bash
 pip install -r requirements.txt
 python main.py
 ```
-Without the bundled `tesseract/` folder, the app uses a Tesseract installed on your PATH.
+Without a bundled `tesseract/` folder the app uses a Tesseract installed on your PATH. This is the option with **zero antivirus risk**, because nothing is packaged.
 
-## Getting a Gemini API key (optional)
+## Optional: local AI
 
-1. Go to <https://aistudio.google.com> and create an API key (free tier available).
-2. In the app open **⚙ Settings** and paste it into **Gemini API key**.
-3. Click **Save Settings**.
-
-OCR works without a key; only the AI buttons need it.
+Install **Ollama** and a model — see the [Local AI guide](LOCAL_AI.md). Everything except the AI buttons works without it.
 
 ## Making it portable
-
-Copy the **entire** `CharlieMJ-OCR` folder to a USB drive or another PC. Keep the `.exe` inside its folder.
+Copy the **entire** `CharlieMJ-OCR` folder to a USB drive or another PC. Keep the `.exe` inside its folder. (Ollama is separate; the AI buttons need it on that PC.)
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| Windows SmartScreen warning | Click **More info → Run anyway** (the app is not code-signed) |
-| "tesseract is not installed" error | Make sure `tesseract\tesseract.exe` sits next to the `.exe` |
-| OCR output is garbage for a language | Check the matching `.traineddata` is in `tesseract\tessdata\` and the right language is chosen in Settings |
-| AI buttons say "Add your Gemini API key" | Paste a key in Settings |
-| Poor OCR on stylised fonts | Crop tightly, or use **🤖 AI OCR** |
-| GitHub build fails | Open the failed run, copy the error text, and open an issue |
-| Antivirus flags the `.exe` | Common with PyInstaller apps; build it yourself from source to verify |
+| SmartScreen "unknown publisher" | **More info → Run anyway** (the app is not code-signed — see [Security](SECURITY.md)) |
+| Antivirus quarantines the `.exe` | Usually a PyInstaller false positive — follow [Security](SECURITY.md) |
+| *tesseract is not installed* | `tesseract\tesseract.exe` must sit beside the `.exe` |
+| Wrong letters for a language | Check the `.traineddata` file exists and the right language is chosen in Settings |
+| Table is wrong or empty | Use a larger/original image, check *Minimum OCR confidence*, try **↻ Raw**, use **⇄ Swap** |
+| AI buttons say Ollama is not running | See [Local AI](LOCAL_AI.md#troubleshooting) |
+| GitHub build fails | Open the failed run, copy the error text, and report it |
