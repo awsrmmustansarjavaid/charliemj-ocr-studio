@@ -56,6 +56,10 @@ def generate(url: str, model: str, prompt: str, image=None, timeout: int = 300) 
     except urllib.error.HTTPError as e:
         if e.code == 404:
             raise RuntimeError(f"Model '{model}' is not installed. Run:  ollama pull {model}") from None
-        raise RuntimeError(f"Ollama error {e.code}") from None
+        try:
+            msg = json.load(e).get("error", "")
+        except Exception:
+            msg = ""
+        raise RuntimeError(f"Ollama error {e.code}: {msg}".strip(": ")) from None
     except urllib.error.URLError:
         raise RuntimeError("Ollama is not running. Start it, then try again.") from None

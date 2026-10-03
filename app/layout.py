@@ -20,6 +20,16 @@ Pipeline (all functions are pure Python, so they are easy to unit-test):
     * analyze        : decide the content type and orientation (which side is
                        the learning language) and return a Result
     * to_markdown    : render an aligned Markdown table (or clean text)
+
+v1.2 additions
+    * _consistent    : drops caption / footer "pairs" (too wide or unaligned) from the table
+    * _bands/_heading: rows of the grid; the heading must be ALONE in the first row (a watermark or
+                       a big word inside the grid is no longer mistaken for the title)
+    * _fill          : recovers table cells the first OCR pass missed - it infers the grid (column
+                       centres, row pitch) from the cells that WERE found and re-reads the empty spots
+    * drop_noise     : also removes phone / social-media chrome ("Posts", "20 hours ago", "more")
+    * full_text      : RAW mode text - every word, nothing filtered
+    * to_notes       : study-notes Markdown for the editor (# title, ## Vocabulary, - **word** — meaning)
 """
 from __future__ import annotations
 
@@ -126,7 +136,7 @@ def _make_seg(ws, line):
 
 
 # ------------------------------------------------------------------- 2. noise
-_EDGE_JUNK = " \t|~_—–-•·<>[]{}()\"'`"
+_EDGE_JUNK = " \t|~_—–-•·<>[]{}()\"'`“”‘"
 
 
 def clean_text(t: str) -> str:
@@ -134,12 +144,22 @@ def clean_text(t: str) -> str:
     return re.sub(r"\s+", " ", t.strip(_EDGE_JUNK)).strip()
 
 
+_UI_RE = re.compile(
+    r"^(posts?|reels?|stories|home|search|explore|follow(ing|ers)?|likes?|comments?|share|send|more|save|reply|translate|"
+    r"\d+\s*(seconds?|minutes?|hours?|days?|weeks?|[smhdw])\s*(ago)?|(\d+\s*)+)$", re.I)
+
+
 def drop_noise(segs, min_conf: float = 45.0):
     """Remove fragments that are unlikely to be real text (icons, UI symbols)."""
     keep = []
+    med = statistics.median(x.h for x in segs) if segs else 0
     for s in segs:
         s.text = clean_text(s.text)
+        if med and s.h > 2.2 * med and s.conf < 80:
+            continue                                   # big shaky text = watermark / decoration
         compact = s.text.replace(" ", "")
+        if _UI_RE.match(s.text.strip()):
+            continue                                   # "Posts", "20 hours ago", "more" ...
         if len(compact) < 2 or s.conf < min_conf:
             continue
         if sum(c.isalpha() for c in compact) / len(compact) < 0.6:
@@ -188,8 +208,10 @@ def vertical_pairs(segs):
             if i == j:
                 continue
             gap = b.y0 - a.y1
-            if gap < -0.3 * a.h or gap > 1.0 * max(a.h, b.h):
+            if gap < -0.3 * a.h or gap > 1.2 * min(a.h, b.h):
                 continue                               # not directly below / too far
+            if max(a.h, b.h) > 2.0 * min(a.h, b.h):
+                continue                               # very different text size -> not a label pair
             overlap = min(a.x1, b.x1) - max(a.x0, b.x0)
             if overlap < 0.35 * min(a.w, b.w):
                 continue                               # not in the same column
@@ -231,8 +253,51 @@ def _orient(pairs, lang):
     return out
 
 
-def _reading_order(pairs, unit):
-    """Sort pairs row by row (top to bottom), left to right inside a row."""
+# ------------------------------------------------------------------- 5. grid helpers
+def _pw(p):
+    """Width of a pair (both texts together)."""
+    return max(p[0].x1, p[1].x1) - min(p[0].x0, p[1].x0)
+
+
+def _pc(p):
+    """Horizontal centre of a pair."""
+    return (min(p[0].x0, p[1].x0) + max(p[0].x1, p[1].x1)) / 2
+
+
+def _consistent(pairs):
+    """Drop 'pairs' that do not belong to the table: captions, footers, stray UI text.
+
+    Normal-sized, confident pairs are kept. A pair is only questioned when it is unusually
+    wide (a caption line) or has low confidence - and then it must line up (left / centre /
+    right edge) with another pair, as real table cells do.
+    """
+    if len(pairs) < 4:
+        return pairs
+    mw = statistics.median(_pw(p) for p in pairs)
+    keep = [p for p in pairs if 0.15 * mw <= _pw(p) <= 2.3 * mw]
+    feats = [(min(a.x0, b.x0), _pc((a, b)), max(a.x1, b.x1)) for a, b in keep]
+    tol = 0.25 * mw
+
+    def aligned(i):
+        return any(abs(feats[i][k] - feats[j][k]) <= tol for j in range(len(keep)) if j != i for k in range(3))
+    out = [p for i, p in enumerate(keep)
+           if (_pw(p) < 1.6 * mw and (p[0].conf + p[1].conf) / 2 >= 50) or aligned(i)]
+    return out if len(out) >= 3 else pairs
+
+
+def _cluster(values, tol):
+    """Group sorted numbers that are within tol of their neighbour -> [(mean, count)]."""
+    groups = []
+    for v in sorted(values):
+        if groups and v - groups[-1][-1] <= tol:
+            groups[-1].append(v)
+        else:
+            groups.append([v])
+    return [(statistics.fmean(g), len(g)) for g in groups]
+
+
+def _bands(pairs, unit):
+    """Group pairs into rows (bands), top to bottom; each row sorted left to right."""
     pairs = sorted(pairs, key=lambda p: min(p[0].cy, p[1].cy))
     bands, cur, top = [], [], None
     for p in pairs:
@@ -244,16 +309,90 @@ def _reading_order(pairs, unit):
         cur.append(p)
     if cur:
         bands.append(cur)
-    return [p for band in bands for p in sorted(band, key=lambda p: min(p[0].x0, p[1].x0))]
+    return [sorted(b, key=lambda p: min(p[0].x0, p[1].x0)) for b in bands]
 
 
-# ------------------------------------------------------------------- 5. analyze
-def analyze(words, lang: str = "Turkish", min_conf: float = 45.0, refine=None) -> Result:
+def _heading(bands):
+    """A much larger pair ALONE in the first row (and followed by rows) is the heading.
+
+    Cells inside a grid row can never be the heading, so a watermark or a big word in the
+    middle of the table is not mistaken for a title any more.
+    """
+    if len(bands) < 3 or len(bands[0]) != 1:
+        return None
+    p = bands[0][0]
+    rest = statistics.median(max(a.h, b.h) for band in bands[1:] for a, b in band)
+    if max(p[0].h, p[1].h) >= 1.5 * rest and (p[0].conf + p[1].conf) / 2 >= 70:
+        bands.pop(0)
+        return tuple(sorted(p, key=lambda s: s.y0))
+    return None
+
+
+def _good_line(t, conf):
+    t = clean_text(t)
+    c = t.replace(" ", "")
+    return len(c) >= 2 and conf >= 50 and sum(ch.isalpha() for ch in c) / len(c) >= 0.6
+
+
+def _fill(bands, read_cell, lang, unit):
+    """Recover table cells that the first OCR pass missed.
+
+    The grid is inferred from the cells that WERE found: their column centres and row
+    spacing. For every empty (row, column) position - including whole rows that are
+    missing between two found rows - the label area is cropped and read again with
+    read_cell(box) -> [(text, confidence), ...].
+    """
+    allp = [p for b in bands for p in b]
+    mw = statistics.median(_pw(p) for p in allp)
+    cols = [c for c, n in _cluster([_pc(p) for p in allp], 0.5 * mw) if n >= max(2, 0.4 * len(bands))]
+    if len(cols) < 2:
+        return bands, []
+    tops = [statistics.median(min(a.y0, b.y0) for a, b in bd) for bd in bands]
+    bots = [statistics.median(max(a.y1, b.y1) for a, b in bd) for bd in bands]
+    height = statistics.median(b - t for t, b in zip(tops, bots))
+    rows = list(zip(tops, bots, bands))
+    diffs = [b - a for a, b in zip(tops, tops[1:])]
+    if diffs:
+        pitch = statistics.median(diffs)
+        out = []
+        for k, (t, b, band) in enumerate(rows):
+            out.append((t, b, band))
+            if k + 1 < len(rows):
+                miss = round((tops[k + 1] - t) / pitch) - 1
+                if miss >= 1 and tops[k + 1] - t > 1.7 * pitch:
+                    out += [(t + pitch * m, t + pitch * m + height, []) for m in range(1, miss + 1)]
+        rows = out
+    top_is_orig = sum(a.cy < b.cy for a, b in allp) >= len(allp) / 2
+    result, boxes = [], []
+    for t, b, band in rows:
+        band = list(band)
+        for c in cols:
+            if any(abs(_pc(p) - c) <= 0.5 * mw for p in band):
+                continue
+            box = (c - 0.55 * mw, t - 0.3 * unit, c + 0.55 * mw, b + 0.3 * unit)
+            lines = [(x, cf) for x, cf in read_cell(box) if _good_line(x, cf)]
+            if len(lines) < 2:
+                continue
+            (t1, c1), (t2, c2) = lines[0], lines[1]
+            mid = (t + b) / 2
+            s1 = Seg(clean_text(t1), c - 0.5 * mw, t, c + 0.5 * mw, mid, unit, c1, -1)
+            s2 = Seg(clean_text(t2), c - 0.5 * mw, mid, c + 0.5 * mw, b, unit, c2, -1)
+            sc = target_score(s1.text, lang) - target_score(s2.text, lang)
+            first_orig = (sc > 0) if sc else top_is_orig
+            band.append((s1, s2) if first_orig else (s2, s1))
+            boxes.append(box)
+        if band:
+            result.append(sorted(band, key=lambda p: min(p[0].x0, p[1].x0)))
+    return result, boxes
+
+
+# ------------------------------------------------------------------- 6. analyze
+def analyze(words, lang: str = "Turkish", min_conf: float = 45.0, refine=None, read_cell=None) -> Result:
     """Main entry: OCR words -> Result (title, table rows, leftovers, clean text).
 
-    refine: optional callback refine(seg, role) -> str, role is "orig" or "trans".
-    It lets the OCR layer re-read each table cell on its own with the right
-    language model (much better for Turkish letters like ş ı ğ ç).
+    refine:    optional refine(seg, role) -> str, role "orig" / "trans". Re-reads one cell
+               with the right single-language model (better for ş ı ğ ç).
+    read_cell: optional read_cell(box) -> [(text, conf)]. Re-reads a missing grid cell.
     """
     res = Result()
     all_segs = build_segments(list(words))
@@ -268,34 +407,50 @@ def analyze(words, lang: str = "Turkish", min_conf: float = 45.0, refine=None) -
 
     vp, hp = vertical_pairs(segs), horizontal_pairs(segs)
     pairs, res.method = (vp, "vertical") if len(vp) >= len(hp) else (hp, "horizontal")
+    pairs = _consistent(pairs)
 
     if len(pairs) >= 3 and 2 * len(pairs) >= 0.5 * len(segs):
         res.kind = "bilingual"
         pairs = _orient(pairs, lang)
-        # A much larger pair near the top is the heading, not a vocabulary row.
-        sizes = statistics.median(max(a.h, b.h) for a, b in pairs)
-        heads = [p for p in pairs if max(p[0].h, p[1].h) >= 1.35 * sizes]
-        if heads:
-            head = min(heads, key=lambda p: min(p[0].y0, p[1].y0))
-            pairs.remove(head)
-            first, second = sorted(head, key=lambda s: s.y0)
-            res.title, res.subtitle = first.text, second.text
-        if refine:                                      # re-read each TABLE cell with its own language
-            for a, b in pairs:                          # (the big title keeps its first-pass text)
-                a.text = refine(a, "orig") or a.text
-                b.text = refine(b, "trans") or b.text
-        pairs = _reading_order(pairs, unit)
-        res.rows = [(a.text, b.text) for a, b in pairs]
         used = {id(s) for p in pairs for s in p}
-        used.update(id(s) for s in ([] if not heads else [first, second]))
-        left = [s for s in sorted(segs, key=lambda s: (s.cy, s.x0)) if id(s) not in used]
-        if not res.title and rows_top(pairs) is not None:
-            # a big, unpaired line above the first row is the heading (e.g. "Daily Greetings")
-            big = [s for s in left if s.h >= 1.3 * unit and s.y1 <= rows_top(pairs) + 0.5 * unit]
+        bands = _bands(pairs, unit)
+        head = _heading(bands)
+        if head:
+            res.title, res.subtitle = head[0].text, head[1].text
+            used.update(id(s) for s in head)
+        if refine:                                       # second, language-specific reading of each cell
+            for a, b in (p for band in bands for p in band):
+                for seg, role in ((a, "orig"), (b, "trans")):
+                    try:
+                        seg.text = clean_text(refine(seg, role) or seg.text)
+                    except Exception:
+                        pass
+        boxes = []
+        if read_cell:
+            try:
+                bands, boxes = _fill(bands, read_cell, lang, unit)
+            except Exception:
+                pass
+        res.rows = [(a.text, b.text) for band in bands for a, b in band]
+        def in_box(s):
+            return any(b[0] <= (s.x0 + s.x1) / 2 <= b[2] and b[1] <= s.cy <= b[3] for b in boxes)
+        left = [s for s in sorted(segs, key=lambda s: (s.cy, s.x0)) if id(s) not in used and not in_box(s)]
+        top = rows_top([p for band in bands for p in band])
+        if not res.title and top is not None:
+            # a heading is clearly bigger than the labels - or only a bit bigger but sitting right above the first row
+            big = [s for s in left if s.y1 <= top + 0.5 * unit and s.conf >= 70
+                   and (s.h >= 1.6 * unit or (s.h >= 1.25 * unit and top - s.y1 <= 3 * unit))]
             if big:
-                head = max(big, key=lambda s: s.h)
-                res.title = head.text
-                left.remove(head)
+                h = max(big, key=lambda s: s.h)
+                res.title = h.text
+                left.remove(h)
+                # the line right under the title (smaller, overlapping horizontally) is the subtitle
+                subs = [s for s in left if -0.3 * h.h <= s.y0 - h.y1 <= 1.2 * min(h.h, s.h) and s.h <= h.h
+                        and min(s.x1, h.x1) - max(s.x0, h.x0) > 0.3 * min(s.w, h.w)]
+                if subs:
+                    sub = min(subs, key=lambda s: s.y0 - h.y1)
+                    res.subtitle = sub.text
+                    left.remove(sub)
         res.other = [s.text for s in left]
     else:
         res.kind = "text"
@@ -403,3 +558,43 @@ def to_plain(md: str) -> str:
         t = re.sub(r"\*+", "", t)
         out.append(re.sub(r"^\s*-\s+", "• ", t))
     return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
+
+
+def full_text(words) -> str:
+    """RAW mode: every word, nothing removed or reordered by guesswork.
+
+    Reading-order lines; text blocks that sit side by side are separated by 4 spaces.
+    """
+    lines = {}
+    for s in sorted(build_segments(list(words)), key=lambda s: (s.line, s.x0)):
+        lines.setdefault(s.line, []).append(s.text)
+    return "\n".join("    ".join(v) for _, v in sorted(lines.items()))
+
+
+def text_notes(md: str, heading: str) -> str:
+    """Notes Markdown for plain text: a '## heading' followed by one paragraph per non-empty line."""
+    body = [ln.strip() for ln in md.splitlines() if ln.strip()]
+    return "\n".join([f"## {heading}", *body]) if body else ""
+
+
+def to_notes(res: Result, md: str) -> str:
+    """Study-notes Markdown for the text editor (headings + bullets by default).
+
+        # Main title            <- big heading found in the picture
+        ### Subtitle
+        ## Vocabulary
+        - **original** — translation
+
+    Pairs are read back from `md` (the table the user sees and may have edited or swapped).
+    """
+    pairs = extract_pairs(md)
+    if res is not None and res.kind == "bilingual" and pairs:
+        out = []
+        if res.title:
+            out.append(f"# {res.title}")
+        if res.subtitle:
+            out.append(f"### {res.subtitle}")
+        out.append("## Vocabulary")
+        out += [f"- **{a}** — {b}" for a, b in pairs]
+        return "\n".join(out)
+    return text_notes(md, "Text")

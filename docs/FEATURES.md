@@ -1,60 +1,44 @@
 # Features
 
-[← Main README](../README.md) · Previous: [Overview](PROJECT_OVERVIEW.md) · Next: [Smart OCR](SMART_OCR.md)
+[← Back to main README](../README.md) · Previous: [Project Overview](PROJECT_OVERVIEW.md) · Next: [OCR Modes](OCR_MODES.md)
 
-![App screenshot](../assets/app-screenshot.png)
+![UI concept](../assets/ui-mockup.png)
 
-*A real screenshot of version 1.1: the card grid on the left was turned into the table on the right.*
+*Early design mockup. The real application is shown in the [main README](../README.md).*
 
-## 1. Image input
-| Feature | Description |
-|---------|-------------|
-| Add Images | Multi-select dialog (PNG, JPG, JPEG, WEBP, BMP, TIFF) |
-| Add Folder | Adds every supported image in a folder, up to the batch limit |
-| Paste Image | Bitmap from the clipboard (e.g. after `Win+Shift+S`) or copied image files; `Ctrl+V` works too |
-| Screenshot | Hides the window, freezes the screen, drag a rectangle; `Esc` cancels |
+## 1. Input
+Add Images (multi-select) · Add Folder · Paste (button or `Ctrl+V`) · Screenshot (drag a rectangle) ·
+✂ **Select Area** on any picture. Batch limit 5 / 10 / 20 / 50 / 100 with Remove Selected / All / Undo.
 
 ## 2. Image queue
-- Numbered cards (**1., 2., 3., …**) with thumbnail and status: Waiting → Working → Done / Error.
-- Counter `Batch: 7 / 20`; limit selectable (5–100) in Settings.
-- **▲ ▼** buttons reorder images. **Remove Selected / Remove All / Undo** (restores the old positions).
-- **Process All** OCRs every pending image in the background and shows progress (`Processing 3 / 20`). One failing image never stops the batch.
+Numbered thumbnails (**Image 1, 2, 3…**), status (Waiting / Working / Done / Error), ▲ ▼ reordering.
+Numbers update automatically when images are deleted, undone or moved.
 
-## 3. Smart OCR (the main feature)
-- Reads **word positions and confidence**, not just text → [details](SMART_OCR.md).
-- Detects **bilingual tables** (label + translation under it, or two columns), titles/subtitles, and plain paragraphs.
-- Puts the **learning language in column 1** and the translation in column 2 (script/letter hints, with a **⇄ Swap** button).
-- Removes UI noise (icons, clock, stray symbols) and re-reads each cell with its own language model so letters like **ş ı ğ ç ü ö** come out right.
-- **Raw mode** gives plain OCR text when you do not want structure.
+## 3. Three OCR modes → [OCR Modes](OCR_MODES.md)
+**Smart** (structure → table) · **Raw** (every word) · **AI Smart** (title, headings, subheadings, bullets).
 
-## 4. One result card per image
-- Title **Image 1, Image 2, …** (numbers follow the queue; deleting or reordering renumbers automatically).
-- Thumbnail, file name and status beside each title.
-- Per-image buttons: **Copy, ↻ Smart, ↻ Raw, ⇄ Swap, 🗑 Delete**.
-- Each result is its own **editable** text box; a horizontal separator line sits between images.
-- **🧩 Combine All OCR** joins everything with `## Image N`, the file name, and `---` between images.
+## 4. Per-image result cards (panel 3)
+Thumbnail, *Image N* title, file name, status, editable text, break line between images, and per-image
+**Copy · ↻ Raw · ↻ Smart · ↻ AI · ⇄ Swap · 🗑**. Panel buttons: Copy Selected / All / Plain / Original OCR, Clear,
+🧩 Combine → Editor.
 
-## 5. Notes editing
-Title, H1–H3, bullet, numbered list, bold, italic, separator line, undo/redo — acting on whichever box you last clicked. Markdown tables are padded so they stay aligned in the monospace boxes.
+## 5. Text Editor (panel 4) → [Text Editor](EDITOR.md)
+Automatic *Image N → title → headings → bullets* · bold, italic, underline, strike, size, colour, highlight ·
+bullets, numbering, alignment, separator · find & replace · sort A–Z · remove duplicates · zoom · focus mode ·
+protected user edits with Restore · export MD / TXT / HTML / DOCX / CSV.
 
-## 6. Copy and export
-| Button | Result |
-|--------|--------|
-| Copy (per image) | That image's result |
-| Copy Selected | Highlighted text of the active box |
-| Copy All | All images, numbered, separated by `---` |
-| Copy Plain | Same without Markdown symbols and table pipes |
-| Copy Original OCR | The untouched OCR text of every image |
-| Save (.md) / Export TXT / Export CSV | CSV columns: `Image, <language>, <translation>`, duplicates removed |
+## 6. Smart OCR engine → [Smart OCR](SMART_OCR.md)
+Word positions + confidence, grid / pair / heading detection, caption and watermark rejection, missing-cell
+recovery, language-aware second reading of each cell (ş ı ğ ç), phone-UI noise filter, dark-theme handling.
 
-## 7. Optional local AI (Ollama)
-✨ Learn This · Clean · Translate · Explain · Vocabulary · Flashcards · 📊 Table · 🤖 AI OCR (vision). Runs on your PC, localhost only → [Local AI guide](LOCAL_AI.md). A status line shows whether Ollama is reachable, and Settings has a **connection test**.
+## 7. Local AI (optional) → [Local AI](LOCAL_AI.md)
+Ollama on your own PC: AI Smart mode plus editor buttons *Learn This, Clean, Table, Translate, Explain,
+Vocabulary, Flashcards*. No account, no API key, no cloud; only localhost is allowed.
 
 ## 8. Settings
-Learning language, your language, level, default OCR mode, minimum OCR confidence, batch limit, theme, local-AI address and model. Saved in `config.json` beside the app.
+Learning language, your language, level, batch limit, minimum OCR confidence, theme, Ollama address and model,
+**Test AI connection**. Saved in `config.json` next to the app.
 
-## 9. Portable and private
-No installer, no admin rights, no telemetry, no cloud, no startup entry → [Security](SECURITY.md).
-
-## Not in v1.1
-Drag-and-drop, global hotkey, vocabulary library, spaced repetition, text-to-speech — see the [Roadmap](ROADMAP.md).
+## 9. Portable & safe → [Security](SECURITY.md)
+One folder with an `.exe`; no installer, admin rights, registry entries or auto-start; pinned dependencies,
+checksums, Defender scan in the build.

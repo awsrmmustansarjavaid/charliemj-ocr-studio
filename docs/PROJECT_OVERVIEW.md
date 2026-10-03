@@ -16,7 +16,7 @@ The author learns several languages (Turkish, Urdu, Arabic, Persian, English) fr
 2. Format the notes manually.
 3. Repeat for dozens of images.
 
-The first version of this tool added OCR, but the result was **messy**: plain OCR returns one long string and destroys the relationship between words ("kışlık eldiven" and "winter gloves" end up in different places). Version 1.1 fixes the root cause by keeping **word positions** and rebuilding the structure.
+The first version of this tool added OCR, but the result was **messy**: plain OCR returns one long string and destroys the relationship between words ("kışlık eldiven" and "winter gloves" end up in different places). Version 1.1 fixed the root cause by keeping **word positions** and rebuilding the structure; version 1.2 adds three OCR modes, an area-selection tool and a text editor for the final notes.
 
 ![Before and after](../assets/smart-ocr-before-after.png)
 
@@ -30,6 +30,9 @@ The first version of this tool added OCR, but the result was **messy**: plain OC
 | Handle batches | Queue (default 20), Process All, reorder, delete, undo |
 | Easy copying | Copy per image, selected, all, plain, original OCR |
 | Private & safe | Offline OCR, local AI only (localhost), no telemetry, pinned dependencies |
+| Clean, complete vocabulary | **Smart** (table) / **Raw** (every word) / **AI Smart** (title, headings, bullets) modes |
+| OCR only the part you need | **✂ Select Area** tool: each box becomes its own *Image N* |
+| Ready-to-use study notes | **Text Editor** panel: automatic *Image N → title → headings → bullets*, formatting, DOCX / HTML / CSV export |
 | Lightweight & portable | Python + Tkinter + Tesseract; no Electron, no bundled AI models |
 
 ## Non-goals (for now)
@@ -48,3 +51,5 @@ The first version of this tool added OCR, but the result was **messy**: plain OC
 
 ## Related documents
 [Features](FEATURES.md) · [Smart OCR](SMART_OCR.md) · [Local AI](LOCAL_AI.md) · [Technologies](TECHNOLOGIES.md) · [Architecture](ARCHITECTURE.md) · [Installation](INSTALLATION.md) · [User Guide](USER_GUIDE.md) · [Security](SECURITY.md) · [Testing](TESTING.md) · [Roadmap](ROADMAP.md)
+
+New in v1.2: [OCR Modes](OCR_MODES.md) · [Text Editor](EDITOR.md) · [Changelog](CHANGELOG.md)

@@ -1,101 +1,68 @@
 # User Guide
 
-[← Main README](../README.md) · Previous: [Installation](INSTALLATION.md) · Next: [Security](SECURITY.md)
+[← Back to main README](../README.md) · Previous: [Installation](INSTALLATION.md) · Next: [Testing](TESTING.md)
 
-## Window layout
-
+## The window — four panels
 ```text
-┌────────────────┬──────────────────┬──────────────────────────────────────┐
-│ 📥 INPUT       │ 🖼 PREVIEW       │ Formatting: Title H1 H2 H3 • 1. B I   │
-│ Add / Shot /   │                  │ Local AI: Learn This · Clean · Table… │
-│ Paste / Folder │  selected image  │ [Results] [Combined]                  │
-│ Batch: 7 / 20  │                  │  Image 1  [Copy][↻ Smart][↻ Raw][⇄][🗑]│
-│ 1. card ▲▼     │ OCR mode         │  ┌ Turkish | English table ┐          │
-│ 2. card ▲▼     │ (Smart | Raw)    │  ──────────────────────────           │
-│ Remove · Undo  │ [Extract][AI OCR]│  Image 2 …                            │
-│ [Process All]  │ [Settings]       │ Copy … Combine · Save · Export        │
-├────────────────┴──────────────────┴──────────────────────────────────────┤
-│ ✓ Ready                                    OCR: Local | AI: Ollama ✓      │
-└───────────────────────────────────────────────────────────────────────────┘
+┌ 1 INPUT ────┬ 2 PREVIEW ───┬ 3 OCR RESULTS ───────┬ 4 TEXT EDITOR ──────────────────┐
+│ Add / Shot  │  picture     │ Image 1  [thumb]     │ style  B I U S  A− 13 A+        │
+│ Paste/Folder│              │  Copy ↻Raw ↻Smart…   │ • List 1. List ⬅ ↔ ➡ 🎨 ― 🖍    │
+│ Batch 3/20  │ OCR mode:    │  ┌ table / text ───┐ │ ↶ ↷ 🔍 Sort  No dup  ⟳ ⤺        │
+│ 1. a.jpg ▲▼ │ Smart|Raw|AI │  └─────────────────┘ │ AI: Learn This · Clean · Table  │
+│     … Auto-update  ◀ Focus      │
+│ 2. b.jpg ▲▼ │ 🔍 Extract   │ ──────────────────── │ ┌─────────────────────────────┐ │
+│ 🗑 ↶        │ ✂ Select Area│ Image 2 …            │ │ Image 1  (title)            │ │
+│ ⚡ Process  │ ⚙ Settings   │ Copy All · Combine → │ │ Main title / headings       │ │
+│   All       │              │                      │ │ • word — translation        │ │
+└─────────────┴──────────────┴──────────────────────┴─┴─────────────────────────────┴─┘
 ```
+Drag the thin dividers to resize panels, or press **◀ Focus** (panel 4) to hide panels 1–3.
 
 ## First-time setup
-1. **⚙ Settings** → choose your **learning language** (selects the OCR model and the first table column) and **your language** (second column, translations).
-2. Optionally set level, batch limit, theme, and the *Minimum OCR confidence* (default 45).
-3. *(Optional)* install Ollama and press **🔌 Test local AI connection** — see [Local AI](LOCAL_AI.md).
-4. **Save Settings**.
+1. **⚙ Settings** → learning language (this picks the OCR language), your language, level.
+2. *(Optional)* install Ollama for AI → [Local AI](LOCAL_AI.md) → **Test AI connection**.
 
-## Workflows
+## Quick workflows
+### A. Many flashcards → finished notes
+1. **＋ Add Images** (select up to 20) or **📂 Add Folder**.
+2. Choose **Smart** and press **⚡ Process All**.
+3. Watch the cards fill in panel 3 and the **editor** build itself (*Image 1 → title → vocabulary bullets*).
+4. Check each card; use **⇄ Swap** if its columns are reversed.
+5. Polish in the editor, then **DOCX / HTML / MD / CSV**.
 
-### A. Fastest — one picture to a table
-1. **📸 Screenshot** and drag around the flashcard (or **📋 Paste Image**, or **＋ Add Images**).
-2. Choose **Smart** and press **🔍 Extract Text**.
-3. **Copy** on the card.
+### B. One part of a picture only
+1. Click the image, press **✂ Select Area**, drag a box, drag more boxes, press **Done**.
+2. Each box is an *Image N* with its own card.
 
-### B. A batch of up to 20 flashcards
-1. **＋ Add Images** (select many) or **📂 Add Folder**.
-2. **⚡ Process All** — watch the statuses and the progress text.
-3. Each image now has its own card: **Image 1, Image 2, …** with a line between them.
-4. Fix anything inside the boxes (they are editable), use **⇄ Swap** if columns are reversed.
-5. **🧩 Combine All OCR** to see everything in one document, or **Export**.
+### C. Polished notes with headings (needs local AI)
+1. Choose **AI Smart** → **Process All** (it can take a minute per image).
+2. The editor shows *Main title → headings → subheadings → bullets*.
 
-### C. Study mode with local AI
-1. In a card box, select a word or sentence (or select nothing to use the whole box).
-2. Press **Explain**, **Translate**, **Vocabulary**, **Flashcards**, **✨ Learn This** …
-3. **Export CSV** → import into Anki.
+### D. Get every word
+Choose **Raw** → **Process All**, or press **↻ Raw** on one card.
 
-## The queue
-
+## Managing the queue
 | Action | How |
 |--------|-----|
-| Preview an image | Click its card |
-| Reorder | **▲ ▼** on the card — the **Image N** numbers update by themselves |
-| Remove some | Tick checkboxes → **🗑 Selected** (none ticked = the previewed image), or **🗑** on a result card |
-| Remove all | **🗑 All** (asks first) |
-| Mistake | **↶ Undo** puts the images back **at their old positions** |
-| Limit reached | Remove an image, process the batch, or raise the limit in Settings |
+| Preview | click a card (double-click the preview = Select Area) |
+| Reorder | ▲ ▼ — numbering follows |
+| Remove | tick boxes → **🗑 Selected** (nothing ticked = previewed image) · card **🗑** · **🗑 All** |
+| Undo | **↶ Undo** puts removed images back in their old positions |
+| Limit reached | remove an image, process the batch, or raise the limit in Settings |
 
-## Result cards
+## Result cards (panel 3)
+Each card's text is **editable**. Editing a Smart table (fix a word) also updates the editor, because the editor
+re-reads the table. **Copy** copies that card; the buttons below copy all images (Markdown, plain, or original OCR).
 
-| Part | Meaning |
-|------|---------|
-| **Image N** | Position in the queue (renumbers automatically) |
-| Thumbnail, file name, status | Which picture and whether it is done |
-| **Copy** | Copies this image's result |
-| **↻ Smart / ↻ Raw** | Re-run OCR on this image in that mode |
-| **⇄ Swap** | Swap the language columns of a table |
-| **🗑** | Remove this image |
-| Text box | Editable; the horizontal line below separates images |
+## Editor (panel 4)
+Full guide: [Text Editor](EDITOR.md). In one line: format, tidy (sort / duplicates / find), export.
 
-## Formatting buttons (act on the box you last clicked)
-
-| Button | Result |
-|--------|--------|
-| Title / H1 / H2 / H3 | `###` / `##` / `###` / `####` before the line |
-| • Bullet / 1. List | `- text` / `1. text` |
-| B / I | wraps the selection in `**bold**` / `*italic*` |
-| ― Line | inserts `---` |
-| ↶ ↷ | undo / redo |
-
-## Copy and export
-
-| Button | Copies / writes |
-|--------|-----------------|
-| Copy Selected | the highlighted text |
-| Copy All | all images: `## Image N`, file name, text, `---` between images |
-| Copy Plain | same without Markdown symbols / table pipes |
-| Copy Original OCR | untouched OCR text of every image |
-| Save (.md), Export TXT | the combined document |
-| Export CSV | `Image, <language>, <translation>`, duplicates removed (also reads your manual edits and AI bullets) |
-
-CSV opens correctly in Excel with Turkish, Urdu and Arabic letters.
-
-## Tips for better results
-- Use the **original** picture, not a screenshot of a screenshot. Bigger text = better OCR.
-- Crop away apps, menus and comments before OCR.
-- Pick the correct learning language **before** processing.
-- If a table looks wrong, press **↻ Raw** to see what OCR found, then adjust *Minimum OCR confidence*.
-- Treat AI output as a draft and double-check new words.
+## Tips for better OCR
+* Higher resolution = better OCR; avoid shrunk images.
+* Choose the right **learning language** in Settings before processing.
+* If a grid is crowded, use **✂ Select Area** on one row or column.
+* If Smart missed something, press **↻ Raw** on that card to see every word.
+* Local AI output can be wrong — check it, especially rare words and Urdu / Arabic / Persian diacritics.
 
 ## Privacy
-OCR and AI run on your PC. The app talks only to a local Ollama address and has no telemetry. See [Security](SECURITY.md).
+OCR stays on your PC. The optional AI talks only to Ollama on `localhost`. Nothing is uploaded.

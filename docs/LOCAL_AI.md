@@ -1,66 +1,57 @@
-# Local AI Guide (Ollama)
+# Local AI (Ollama)
 
-[← Main README](../README.md) · Previous: [Smart OCR](SMART_OCR.md) · Next: [Technologies](TECHNOLOGIES.md)
+[← Back to main README](../README.md) · Previous: [OCR Modes](OCR_MODES.md) · See also: [Security](SECURITY.md)
 
-## Why local?
-
-- **Private:** your text and images never leave your PC. The app refuses any address that is not `localhost` / `127.0.0.1`.
-- **No account, no API key, no cost, no quota.**
-- **Optional:** OCR, tables, copy and export work without any AI.
-
-AI runs through **[Ollama](https://ollama.com)**, a separate free program. It is *not* bundled, which keeps this app small and avoids antivirus trouble from huge model files.
+AI is **optional**. OCR, Smart / Raw modes, the editor and all exports work without it. When you do want it, the
+model runs **on your own PC** through [Ollama](https://ollama.com): no cloud, no account, no API key. The app talks
+to Ollama only on `localhost` — any other address is refused by the code (`app/local_ai.py`).
 
 ## Setup (once)
+1. Install Ollama from <https://ollama.com> and let it run in the background.
+2. Open a terminal and run `ollama pull gemma3:4b` (about 3 GB; it can read pictures and writes decent Turkish).
+3. In the app: **⚙ Settings → Test AI connection**. You should see *✓ Ollama is running*. The status bar then
+   shows `AI: ✓ gemma3:4b`.
 
-1. Install Ollama from <https://ollama.com> and start it (it runs in the system tray).
-2. Open a terminal (`Win` key → type *cmd*) and download a model:
-   ```text
-   ollama pull gemma3:4b
-   ```
-3. In the app open **⚙ Settings → 🔌 Test local AI connection**. You should see *Ollama is running · 1 model(s) installed*. Pick the model in the dropdown and **Save Settings**.
+| Your PC | Suggested model |
+|---------|-----------------|
+| 8 GB RAM, no GPU | `gemma3:4b` (slow but works) or `gemma3:1b` (text only, fast) |
+| 16 GB RAM / a GPU | `gemma3:4b` or a larger vision model |
 
-The bottom-right of the window shows **AI: Ollama ✓** when it is reachable, or *not running (optional)*.
+The model name is free text in Settings — use any model you have installed (`ollama list`).
 
-## Choosing a model
+## Where the AI is used
+| Place | What it does |
+|-------|--------------|
+| **AI Smart** mode | Smart OCR first, then picture + OCR text → main title, headings, subheadings, bullet vocabulary |
+| Editor **✨ Learn This** | notes: title, cleaned text, translation, vocabulary, grammar note |
+| **Clean** | fixes OCR mistakes only, keeps the structure (replaces the selection) |
+| **📊 Table** | turns messy text into `- **word** — meaning` bullets (replaces the selection) |
+| **Translate / Explain / Vocabulary / Flashcards** | add an answer at the end |
 
-Check <https://ollama.com/library> for current names and sizes.
+Editor buttons work on the **selected lines**, or on the whole editor if nothing is selected.
 
-| Model (example) | Good for | Needs |
-|-----------------|----------|-------|
-| `gemma3:4b` (default) | Text **and images** (AI OCR); decent multilingual | ~4 GB disk, 8 GB RAM recommended |
-| `qwen2.5vl:3b` | Vision-focused alternative | ~3 GB disk, 8 GB RAM |
-| `gemma3:1b` | Fast, text only, weak PCs | ~1 GB disk, 4 GB RAM |
+## Safety rules built into every prompt
+* "Do not invent words that are not in the text; if unclear, keep it as written."
+* AI Smart receives the **OCR text as ground truth** and must include every visible item, copy words exactly and
+  ignore social-media interface text.
+* Answers are inserted as ordinary editable text — always double-check them.
 
-A larger model is usually more accurate but slower. The first request after starting loads the model and takes longer.
-
-## What each button does
-
-| Button | Sends | Result |
-|--------|-------|--------|
-| ✨ Learn This | selected text (or the whole box) | appended: title, translation, vocabulary, grammar note |
-| Clean | text | **replaces** it with a tidy version |
-| Translate | text | appended translation |
-| Explain | word / sentence | meaning, pronunciation, base form, part of speech, examples |
-| Vocabulary | text | bullets `- **word** — meaning` |
-| Flashcards | text | bullets ready for CSV export |
-| 📊 Table | OCR text | rebuilds a `# / language / translation` table from messy text |
-| 🤖 AI OCR | the **image** | reads the picture with the vision model |
-
-Click inside a result box first: the toolbar acts on the box you last clicked, on the **selection** if there is one.
-
-## Safety rules built into the prompts
-All prompts tell the model to **keep the original words and never invent unclear text**. Still, small models make mistakes — treat AI output as a draft, especially for Urdu, Arabic and Persian.
-
-> **AI OCR vs Smart OCR:** for clean text, Tesseract + Smart OCR is usually *more* accurate and much faster than a small vision model. Use AI OCR as a fallback for difficult images.
+## Automatic fallbacks (AI Smart)
+1. The model cannot see images → the request is repeated **text-only** with the OCR text.
+2. Ollama is not running / the model is missing → the **Smart result** is shown instead, with the reason in the status bar.
 
 ## Troubleshooting
-
 | Message | Fix |
 |---------|-----|
-| *Local AI is not running…* | Start Ollama, then press **Test local AI connection** |
-| *Model '…' is not installed* | Run `ollama pull <model>` or choose an installed one in Settings |
-| Very slow | Use a smaller model; close other heavy programs; first call loads the model |
-| Only local addresses allowed | The Ollama address must be `http://127.0.0.1:11434` (default) |
-| Empty or odd AI answer | Select less text, or try another model |
+| *Ollama is not running* | start Ollama (it normally starts with Windows) |
+| *Model 'x' is not installed* | `ollama pull x`, or choose an installed model in Settings |
+| Very slow | use a smaller model; close other programs; AI Smart takes a while per image on CPU |
+| Poor Turkish / Urdu answers | try another model; use Smart (no AI) and edit by hand |
+| *Only a local Ollama address is allowed* | use `http://127.0.0.1:11434` |
 
-See [Security](SECURITY.md) and [Architecture](ARCHITECTURE.md#7-local-ai).
+## Adding your own AI button
+Open `app/prompts.py` and add an entry to `ACTIONS`:
+```python
+"Examples": (lambda t: ctx() + "Write 3 simple example sentences for: " + t, "append"),
+```
+`"append"` adds the answer at the end; `"replace"` replaces the selected lines. The button appears automatically.

@@ -1,46 +1,33 @@
 # Testing
 
-[← Main README](../README.md) · Previous: [Security](SECURITY.md) · Next: [Roadmap](ROADMAP.md)
+[← Back to main README](../README.md) · Previous: [User Guide](USER_GUIDE.md) · Next: [Roadmap](ROADMAP.md)
 
-## What is tested
+Run everything: `python -m unittest discover -s tests -v`   ·   UI test: `xvfb-run -a python tests/smoke_ui.py` (Linux)
+or `python tests/smoke_ui.py` (Windows, with a display).
 
-| Layer | File | Needs | Covers |
-|-------|------|-------|--------|
-| Unit tests | `tests/test_layout.py` | Python only | Card grid → table, two-column table, Urdu/Arabic orientation, noise removal, plain paragraphs, swap, CSV pair extraction, empty input |
-| UI smoke test | `tests/smoke_ui.py` | Tesseract + a display | The real window end to end (see below) |
+| File | What it checks | Needs |
+|------|----------------|-------|
+| `tests/test_layout.py` | structure detection on synthetic word boxes: columns, pairs, orientation, noise, text fallback, Markdown round-trip, empty input | nothing |
+| `tests/test_richtext.py` | Markdown → blocks, tables → bullets, exports (MD / TXT / HTML), **DOCX is valid** (zip + XML), vocabulary pairs | nothing |
+| `tests/test_ocr_integration.py` | **real Tesseract** on a generated vocabulary poster: ≥ 11 / 12 pairs, no fake title, no caption rows, **Raw contains every word** | Tesseract (skipped if missing) |
+| `tests/smoke_ui.py` | the real window driven like a user (see below) | a display (Xvfb) + Tesseract |
+| `tests/make_poster.py` | helper: builds the test poster (3×5 photo grid, watermark, phone UI, caption) | Pillow |
 
-## Run the unit tests (any OS)
+## What the UI smoke test covers
+Starts a **fake Ollama server**, then: opens images → Smart *Process All* → checks the editor was built automatically
+(*Image 1* title, main title, *Vocabulary*, bullets, separators) → **Raw** contains every word → **AI Smart** produces
+h1 / h2 / h3 + bullets → **Select Area** inserts a new *Image N* → reordering renumbers the editor → **Swap** → typing
+in the editor protects it from automatic updates, **Update** and **Restore** → an editor **AI button** → exports
+(MD, TXT, HTML, DOCX, CSV with image numbers) → the selection window with simulated mouse events → **Focus** mode →
+the AI status label.
 
-```bash
-python -m unittest discover -s tests -v
-```
-`build.bat` and the GitHub workflow run them automatically before building the `.exe`.
+## In CI
+`.github/workflows/build.yml` runs `test_layout` and `test_richtext` (blocking) and `test_ocr_integration`
+(informational) before building the `.exe`.
 
-## Run the UI smoke test
-
-```bash
-# Linux (virtual display) - needs tesseract-ocr with tur+eng, python3-tk, xvfb
-xvfb-run -a python tests/smoke_ui.py path/to/image1.png path/to/image2.png
-# Windows / macOS (real display)
-python tests/smoke_ui.py image1.png image2.png
-```
-
-It opens the real window and checks:
-
-1. Images are queued and **Process All** produces a result for each.
-2. Combined text has **`## Image N`** headings and **`---`** between images.
-3. **Reordering** changes the numbering.
-4. **⇄ Swap** changes the table and swaps back.
-5. **Delete + Undo** restore the queue.
-6. **Combine All OCR** fills the Combined tab.
-7. **CSV export** contains the pairs with duplicates removed.
-8. The **local AI** buttons (text action and vision OCR) work against a tiny **fake Ollama server** — no model needed.
-9. The **privacy guard** refuses non-local AI addresses.
-
-Set `SHOT=/path/screenshot.png` to also save a screenshot of the window.
-
-## What has *not* been verified
-
-- Accuracy on **your** photos: the tests use generated images that imitate a "Types of Gloves" card grid and a two-column table. Real photos vary — send examples that fail and add them as tests.
-- Real Ollama models (the AI buttons are tested against a stand-in server).
-- The Windows `.exe` itself is built by the GitHub workflow; the same code was packaged and launched with PyInstaller on Linux during development.
+## Manual checklist before a release
+1. Process 2–3 of your own screenshots in each mode.
+2. Select Area on a crowded picture; delete / reorder images and watch the numbers.
+3. Format something in the editor, export DOCX, open it in Word.
+4. With Ollama running: AI Smart and one AI button. Without Ollama: AI Smart falls back to Smart.
+5. Verify the download against `SHA256SUMS.txt` ([Security](SECURITY.md)).

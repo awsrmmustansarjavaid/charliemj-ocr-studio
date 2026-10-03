@@ -8,6 +8,12 @@ structure of the picture (columns, label/translation pairs, titles).
 make_refiner() adds a second pass: small labels are re-read one by one with
 single-language models (e.g. Turkish only / English only), which is often
 more accurate than the mixed "tur+eng" model on short phrases.
+
+v1.2 additions
+    read_raw()        RAW mode: sparse (--psm 11) + automatic (--psm 3) passes combined, nothing dropped
+    make_cell_reader  re-reads one empty grid cell as a two-line block (used to fill missing cells)
+    make_refiner      now refuses readings that lost letters or changed the word (a photo edge
+                      could cut "güzellik beni" down to "bea")
 """
 import os
 
@@ -92,6 +98,74 @@ def make_refiner(prepped: Image.Image, code_a: str, code_b: str):
             return None
         conf = sum(c for _, c in got) / len(got)
         text = " ".join(t for t, _ in got)
-        return text if conf >= 50 and conf >= seg.conf - 8 else None
+        if conf < 50 or conf < seg.conf - 8:
+            return None
+        old = seg.text.lower()
+        if len(text) < 0.85 * len(old) or difflib.SequenceMatcher(None, old, text.lower()).ratio() < 0.6:
+            return None          # truncated or a different word (e.g. cut by a photo edge): keep the first reading
+        return text
 
     return refine
+
+
+# ---------------------------------------------------------------------------- v1.2 additions
+import difflib
+
+from . import layout
+
+
+def _words(g, code, psm):
+    """Words with boxes from one Tesseract pass (page-segmentation mode psm) on a prepared image."""
+    d = pytesseract.image_to_data(g, lang=code, config=f"--psm {psm}", output_type=pytesseract.Output.DICT)
+    out = []
+    for i, t in enumerate(d["text"]):
+        try:
+            conf = float(d["conf"][i])
+        except ValueError:
+            continue
+        if t.strip() and conf >= 0:
+            x, y, w, h = d["left"][i], d["top"][i], d["width"][i], d["height"][i]
+            out.append(Word(t.strip(), x, y, x + w, y + h, conf))
+    return out
+
+
+def read_raw(img: Image.Image, code: str = None) -> str:
+    """RAW mode - the COMPLETE text of the picture, nothing filtered out.
+
+    Two Tesseract passes are combined: sparse mode (--psm 11, finds scattered text such as
+    card labels) plus automatic page analysis (--psm 3). Any word found by only one pass is kept.
+    """
+    code = code or LANGS[cfg["lang"]]
+    g = prepare(img)
+    a, b = _words(g, code, 11), _words(g, code, 3)
+
+    def seen(w):
+        cx, cy = (w.x0 + w.x1) / 2, (w.y0 + w.y1) / 2
+        return any(r.x0 <= cx <= r.x1 and r.y0 <= cy <= r.y1 for r in a)
+    return layout.full_text(a + [w for w in b if not seen(w)])
+
+
+def make_cell_reader(prepped: Image.Image, code: str):
+    """Return read_cell(box) -> [(text, confidence), ...] (one entry per text line).
+
+    Used to recover table cells the first pass missed: the box is cropped from the
+    prepared image, enlarged, and read as a small text block (--psm 6).
+    """
+    def read_cell(box):
+        x0, y0, x1, y1 = (int(max(0, v)) for v in box)
+        crop = prepped.crop((x0, y0, min(prepped.width, x1), min(prepped.height, y1)))
+        if crop.width < 8 or crop.height < 8:
+            return []
+        k = max(1.0, 90 / crop.height)                       # make the two text lines ~45 px tall each
+        crop = ImageOps.expand(crop.resize((int(crop.width * k), int(crop.height * k)), Image.LANCZOS), border=12, fill=255)
+        d = pytesseract.image_to_data(crop, lang=code, config="--psm 6", output_type=pytesseract.Output.DICT)
+        rows = {}
+        for i, t in enumerate(d["text"]):
+            try:
+                c = float(d["conf"][i])
+            except ValueError:
+                continue
+            if t.strip() and c >= 0:
+                rows.setdefault((d["block_num"][i], d["par_num"][i], d["line_num"][i]), []).append((t.strip(), c))
+        return [(" ".join(t for t, _ in v), sum(c for _, c in v) / len(v)) for _, v in sorted(rows.items())]
+    return read_cell

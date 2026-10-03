@@ -32,27 +32,27 @@
 
 ## What is it?
 
-Typing every word from a flashcard by hand is slow, and normal OCR gives you a messy block of text. **Charlie MJ OCR & Language Studio** reads the *layout* of the picture, so a Turkish label and the English text under it end up side by side:
+Typing every word from a flashcard by hand is slow, and normal OCR gives you a messy block of text. **Charlie MJ OCR & Language Studio** reads the *layout* of the picture, so a Turkish label and the English text under it end up side by side — and then gives you a **text editor** to turn the result into finished study notes:
 
 ![Smart OCR before and after](assets/smart-ocr-before-after.png)
 
-> **Image → OCR with word positions → structure detection → clean table → (optional local AI) → Copy / Export**
+> **Image → OCR with word positions → structure detection → clean table → (optional local AI) → Text Editor → Copy / Export**
 
 ![Application](assets/app-screenshot.png)
 
 ## Key features
 
-- 🧠 **Smart OCR** – detects the structure (card grids, two-column lists, titles, paragraphs) and builds an aligned **Original | Translation** table. **Raw OCR** is still available for plain text.
-- 🔢 **One result per image** – every image gets its own card titled **Image 1, Image 2, …** with a thumbnail, a **break line** between images, and per-image *Copy, Smart, Raw, Swap, Delete*. Numbers update automatically when you delete or reorder (▲ ▼).
-- 🧩 **Combine All OCR** – merge all results into one text with `## Image N` headings and `---` separators.
-- 📸 **Input** – add many images, a folder, paste from clipboard, or drag a screenshot area. Batch limit (default 20) with Remove / Remove All / Undo.
-- 📝 **Notes editor** – Title, H1–H3, bullets, numbering, bold, italic, line, undo/redo; copy selected / all / plain / original OCR.
-- 💾 **Export** – Markdown, TXT, and Anki-ready CSV (`Image, Original, Translation`, duplicates removed).
-- 🤖 **Local AI (optional, no cloud)** – through [Ollama](https://ollama.com): Learn This, Clean, Table, Translate, Explain, Vocabulary, Flashcards, AI OCR. No account, no API key, text never leaves your PC.
-- 🔒 **Safe by design** – offline OCR, localhost-only AI, no installer, no admin rights, no startup entries, pinned dependencies, checksummed builds. See [Security](docs/SECURITY.md).
-- 🪶 **Lightweight & portable** – about 100–150 MB, runs from a USB drive.
+- 🧠 **Three OCR modes** — **Smart** (structure → clean *Original | Translation* table), **Raw** (every word, nothing filtered) and **AI Smart** (local AI writes a main title, headings, subheadings and bullet vocabulary). → [OCR Modes](docs/OCR_MODES.md)
+- ✂ **Select Area tool** — drag a box on the picture; each box becomes its own *Image N* and is OCR'd at once.
+- 📝 **Text Editor (panel 4)** — results flow in automatically as **Image N → main title → headings → bullets**; format with bold, italic, underline, size, colour, highlight, lists, alignment; find & replace, sort A–Z, remove duplicates; export **MD / TXT / HTML / DOCX / CSV**. → [Text Editor](docs/EDITOR.md)
+- 🔢 **One result per image** — cards titled **Image 1, Image 2, …** with a thumbnail, break lines between images and per-image *Copy, Raw, Smart, AI, Swap, Delete*. Numbers update automatically when you delete or reorder (▲ ▼).
+- 📸 **Input** — add many images, a folder, paste from the clipboard, or drag a screenshot area. Batch limit (default 20), Remove / Remove All / Undo.
+- 🎯 **Accurate on real posters** — ignores phone UI, captions and watermarks, recovers cells the first pass missed, never cuts words short. → [Smart OCR](docs/SMART_OCR.md)
+- 🤖 **Local AI (optional, no cloud)** — through [Ollama](https://ollama.com): Learn This, Clean, Table, Translate, Explain, Vocabulary, Flashcards. No account, no API key, text never leaves your PC. → [Local AI](docs/LOCAL_AI.md)
+- 🔒 **Safe by design** — offline OCR, localhost-only AI, no installer, no admin rights, no startup entries, pinned dependencies, checksummed builds. → [Security](docs/SECURITY.md)
+- 🪶 **Lightweight & portable** — about 100–150 MB, runs from a USB drive.
 
-Full list: [docs/FEATURES.md](docs/FEATURES.md)
+Full list: [docs/FEATURES.md](docs/FEATURES.md) · What changed: [docs/CHANGELOG.md](docs/CHANGELOG.md)
 
 ## Quick start
 
@@ -60,6 +60,7 @@ Full list: [docs/FEATURES.md](docs/FEATURES.md)
 1. Upload this repository to your GitHub account (keep the hidden `.github` folder).
 2. Open the **Actions** tab → **Build Windows portable EXE** → **Run workflow**.
 3. After ~10 minutes download the **CharlieMJ-OCR-Portable** artifact, unzip it and run **`CharlieMJ-OCR.exe`**.
+4. *(Optional)* put the zip in [`CharlieMJ-OCR-Portable/`](CharlieMJ-OCR-Portable/README.md) so the download button at the top works.
 
 ### Option B — Build it yourself
 Install Python 3.11, put Tesseract + language data in a `tesseract/` folder, then double-click **`build.bat`**.
@@ -71,17 +72,17 @@ python main.py
 ```
 
 ### Optional: local AI
-Install Ollama from [ollama.com](https://ollama.com), run `ollama pull gemma3:4b`, then press **Settings → Test AI connection**. OCR works without it.
+Install Ollama from [ollama.com](https://ollama.com), run `ollama pull gemma3:4b`, then press **Settings → Test AI connection**. OCR and the editor work without it.
 
 Step-by-step details and troubleshooting: [docs/INSTALLATION.md](docs/INSTALLATION.md)
 
 ## How to use
 
 1. **⚙ Settings** → choose your learning language and your language.
-2. Add images (**＋ / 📸 / 📋 / 📂**).
-3. Choose **Smart** or **Raw**, then **⚡ Process All** (or **🔍 Extract Text** for one image).
+2. Add images (**＋ / 📸 / 📋 / 📂**) — or open one and press **✂ Select Area**.
+3. Choose **Smart**, **Raw** or **AI Smart**, then **⚡ Process All** (or **🔍 Extract Text** for one image).
 4. Check each **Image N** card; use **⇄ Swap** if the columns are reversed.
-5. **Copy** or **Export**.
+5. The **editor** fills itself — format it, then **Copy** or export **DOCX / HTML / MD / CSV**.
 
 More: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
 
@@ -95,14 +96,17 @@ Python 3.11 · CustomTkinter · Pillow · Tesseract (pytesseract) · Ollama (loc
 |----------|--------------------|
 | [Project Overview](docs/PROJECT_OVERVIEW.md) | What the program is, why it was built, goals |
 | [Features](docs/FEATURES.md) | Complete feature list |
-| [Smart OCR](docs/SMART_OCR.md) | How messy images become clean tables |
+| [OCR Modes](docs/OCR_MODES.md) | Smart, Raw, AI Smart and the Select Area tool |
+| [Text Editor](docs/EDITOR.md) | The 4th panel: automatic notes, formatting, tools, export |
+| [Smart OCR](docs/SMART_OCR.md) | How messy pictures become clean tables |
 | [Local AI](docs/LOCAL_AI.md) | Ollama setup, models, AI buttons, troubleshooting |
 | [Technologies](docs/TECHNOLOGIES.md) | Tech stack and the reasons behind it |
-| [Architecture](docs/ARCHITECTURE.md) | Layers, data flow, threading, diagrams |
+| [Architecture](docs/ARCHITECTURE.md) | Modules, data flow, threading, editor model, diagrams |
 | [Security](docs/SECURITY.md) | Privacy, antivirus false positives, verifying downloads |
 | [Installation](docs/INSTALLATION.md) | Build the `.exe`, requirements, troubleshooting |
 | [User Guide](docs/USER_GUIDE.md) | Workflows, buttons, tips |
-| [Testing](docs/TESTING.md) | Unit tests and the end-to-end UI smoke test |
+| [Testing](docs/TESTING.md) | Unit, integration and end-to-end UI tests |
+| [Changelog](docs/CHANGELOG.md) | What is new in each version, and what was fixed |
 | [Roadmap](docs/ROADMAP.md) | Planned versions and ideas |
 
 ## Repository structure
@@ -114,12 +118,17 @@ charliemj-ocr-studio/
 ├── app/                         ← the application package
 │   ├── config.py                   settings, paths, constants
 │   ├── layout.py                   structure detection (pure Python, unit-tested)
-│   ├── ocr_engine.py               Tesseract: words + positions
+│   ├── ocr_engine.py               Tesseract: words + positions, Raw text, cell re-reading
+│   ├── richtext.py                 editor document model + MD/TXT/HTML/DOCX exporters (pure Python)
+│   ├── editor.py                   the formatted text editor panel
+│   ├── selector.py                 the ✂ Select Area tool
+│   ├── prompts.py                  instructions for the local AI
 │   ├── local_ai.py                 optional local AI (Ollama, localhost only)
-│   └── ui.py                       the window
-├── tests/                       ← unit tests + end-to-end UI smoke test
+│   └── ui.py                       the main window (4 panels)
+├── tests/                       ← unit, integration and end-to-end UI tests
 ├── docs/                        ← detailed documentation (table above)
 ├── assets/                      ← banner, diagrams, screenshots
+├── CharlieMJ-OCR-Portable/      ← where the built zip goes (download button)
 ├── requirements.txt             ← pinned runtime dependencies
 ├── requirements-build.txt       ← + PyInstaller (build only)
 ├── build.bat                    ← local build of the portable .exe
@@ -137,8 +146,9 @@ charliemj-ocr-studio/
 
 ## Known limitations
 
-- Smart OCR relies on geometry: very crowded or decorative layouts may need **⇄ Swap** or a manual edit.
-- Tesseract can struggle with stylised fonts and some Arabic-script text; local AI OCR is optional and only as good as your model.
+- Smart OCR relies on geometry: very crowded or decorative layouts may need **⇄ Swap**, **✂ Select Area** or a manual edit.
+- Tesseract can struggle with stylised fonts and some Arabic-script text; Raw and AI Smart can help. Local AI is only as good as your model — always double-check it.
+- The editor's bullets are text characters (not Word list objects) and the clipboard receives plain text; use HTML / DOCX export to keep formatting.
 - The `.exe` is not code-signed, so Windows SmartScreen may warn on first launch.
 
 ## License
