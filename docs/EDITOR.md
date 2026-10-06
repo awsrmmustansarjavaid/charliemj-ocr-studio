@@ -79,3 +79,10 @@ All files are UTF-8, so Turkish, Urdu, Arabic and Persian letters stay intact.
 * Bullets and numbers are text prefixes, so in Word they are typed characters rather than Word list objects.
 * No pictures or tables inside the editor (vocabulary tables become bullets).
 * The Windows clipboard receives plain text, not formatted text; use HTML or DOCX export to keep formatting.
+
+## Captured areas and the toolbar (v1.3)
+* Text taken with **✂ Select Area → This image** appears under that image as an **Area n** sub-heading with its own bullets
+  (the *Vocabulary* heading is not repeated). Remove an area with its **🗑** button in panel 3 and the editor follows.
+* The toolbar is one **flowing strip**: on a narrow panel it wraps onto extra rows instead of being cut off.
+* Loading is much faster: fonts are assigned while the text is inserted, and a backup for **⤺ Restore** is made only
+  when you have edited the text yourself.

@@ -134,17 +134,27 @@ def main():
     assert "h1" in styles and "h2" in styles and "h3" in styles, styles
     assert any(t == "• gamze — dimple" for _, t in [(b.style, b.text) for b in blocks()])
 
-    # ---- 5. Select Area -> new Image N right after the source
+    # ---- 5. Select Area: the result is ADDED to the same image (no new "Image N", no batch slot used)
     app.run_ocr(poster_item, "Smart")
     wait(lambda: poster_item["status"] == "done", "smart again")
     app.mode.set("Raw")
     app.show(0)
     crop = poster_item["img"].crop((0, 300, 1080, 620))
-    app.add_area(poster_item, crop, 1)
-    assert len(app.items) == 3 and "area 1" in app.items[1]["name"]
-    wait(lambda: app.items[1]["status"] == "done", "area OCR")
-    assert "gamze" in app.items[1]["md"].lower()
+    before = len(app.items)
+    assert app.add_area(poster_item, crop, 1) is True
+    assert len(app.items) == before and len(poster_item["areas"]) == 1
+    area = poster_item["areas"][0]
+    wait(lambda: area["status"] == "done", "area OCR")
+    assert "gamze" in area["md"].lower()
+    texts = [b.text for b in blocks()]
+    assert "Area 1" in texts and texts.index("Area 1") > texts.index("Image 1"), texts[:12]
+    assert "Area 1" in app.combined_text() or "gamze" in app.combined_text().lower()
+    # the "new image" target still works (and honours numbering)
+    assert app.add_area(poster_item, crop, 2, "new") and len(app.items) == before + 1 and "area 2" in app.items[1]["name"]
+    wait(lambda: app.items[1]["status"] == "done", "new-image area OCR")
     assert any(b.style == "title" and b.text == "Image 2" for b in blocks())
+    app.remove_area(area)
+    assert not poster_item["areas"]
 
     # ---- 6. reorder -> numbering follows
     app.move(0, 1)
@@ -192,16 +202,38 @@ def main():
     assert zipfile.ZipFile(os.path.join(tmp, "out.docx")).testzip() is None
     print("csv sample:", csv_rows[1:3])
 
-    # ---- 11. selection window (simulated mouse)
-    got = []
-    sel = AreaSelector(app, poster_item["img"], lambda c, n: got.append((c.size, n)))
+    # ---- 11. selection window: zoom / fit / select / crop / rotate (simulated mouse)
+    got, replaced = [], []
+    sel = AreaSelector(app, poster_item["img"], lambda c, n, t: got.append((c.size, n, t)), replaced.append)
     app.update()
+    sel.fit()
+    sel.update()
+    k_fit = sel.k
+    assert 0.03 < k_fit <= 1.0
+    sel.zoom(2.0)
+    assert sel.k > k_fit
+    sel.fit_width()
+    sel.actual()
+    assert sel.k == 1.0
+    sel.fit()
+    sel.update()
     ev = types.SimpleNamespace
     sel._press(ev(x=50, y=60))
     sel._drag(ev(x=300, y=200))
     sel._release(ev(x=300, y=200))
+    assert got and got[0][1] == 1 and got[0][2] == "same" and got[0][0][0] > 100, got
+    sel.target.set("crop")
+    w0 = sel.src.width
+    sel._press(ev(x=50, y=60))
+    sel._release(ev(x=300, y=200))
+    assert replaced and replaced[-1].width < w0
+    h0 = sel.src.height
+    sel.rotate(90)
+    assert sel.src.width == h0
+    sel.undo_edit()
+    sel.undo_edit()
+    assert sel.src.width == w0
     sel.destroy()
-    assert got and got[0][1] == 1 and got[0][0][0] > 100, got
 
     # ---- 12. focus mode, settings, AI status
     app.toggle_focus()

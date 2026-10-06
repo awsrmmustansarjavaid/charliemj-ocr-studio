@@ -25,6 +25,8 @@ DEFAULTS = {
     "ollama_url": "http://127.0.0.1:11434", # local AI server (Ollama) - localhost only
     "model": "gemma3:4b",                   # local model name (must be pulled in Ollama)
     "theme": "dark",
+    "accuracy": "Balanced",                 # Fast | Balanced | Deep (Deep re-reads every cell and retries doubtful images)
+    "title_vocab": True,                    # also list the picture's title + subtitle as a vocabulary item
 }
 
 # Friendly language name -> Tesseract language codes ("+eng" helps mixed text).

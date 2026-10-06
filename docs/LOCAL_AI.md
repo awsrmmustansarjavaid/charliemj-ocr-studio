@@ -55,3 +55,9 @@ Open `app/prompts.py` and add an entry to `ACTIONS`:
 "Examples": (lambda t: ctx() + "Write 3 simple example sentences for: " + t, "append"),
 ```
 `"append"` adds the answer at the end; `"replace"` replaces the selected lines. The button appears automatically.
+
+## AI Smart safety net (v1.3)
+A local model can skip an item. After every AI Smart answer the program compares the AI bullets with the Smart OCR
+table (names are compared at ≥ 80 % similarity, so a corrected letter does not count as missing) and appends any
+missing pair under **More vocabulary (from OCR)**. The status bar tells you how many items were added.
+The picture's title/subtitle counts too when *Also list the picture's title as a vocabulary item* is on.

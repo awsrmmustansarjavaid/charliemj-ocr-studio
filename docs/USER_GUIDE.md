@@ -32,7 +32,12 @@ Drag the thin dividers to resize panels, or press **◀ Focus** (panel 4) to hid
 
 ### B. One part of a picture only
 1. Click the image, press **✂ Select Area**, drag a box, drag more boxes, press **Done**.
-2. Each box is an *Image N* with its own card.
+2. By default each box is **added to the same image**: *✂ Area 1, 2 …* under its card and under *Image N* in the editor.
+3. Zoom with **− / + / Fit / Fit width / 100 %**, rotate, or **crop** the picture — see [Select Area](SELECT_AREA.md).
+
+### B2. Nothing may be missing
+Choose **Accuracy → Deep** under the mode switch. Read the status bar: *all cells read* means complete;
+*⚠ … try Deep OCR* tells you where to look. **Raw** always shows the complete text for comparison.
 
 ### C. Polished notes with headings (needs local AI)
 1. Choose **AI Smart** → **Process All** (it can take a minute per image).
@@ -48,7 +53,7 @@ Choose **Raw** → **Process All**, or press **↻ Raw** on one card.
 | Reorder | ▲ ▼ — numbering follows |
 | Remove | tick boxes → **🗑 Selected** (nothing ticked = previewed image) · card **🗑** · **🗑 All** |
 | Undo | **↶ Undo** puts removed images back in their old positions |
-| Limit reached | remove an image, process the batch, or raise the limit in Settings |
+| Limit reached | remove an image, raise the limit in Settings, or select areas **into** an existing image (they do not count) |
 
 ## Result cards (panel 3)
 Each card's text is **editable**. Editing a Smart table (fix a word) also updates the editor, because the editor

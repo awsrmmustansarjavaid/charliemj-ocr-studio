@@ -8,7 +8,7 @@
 
 ## 1. Input
 Add Images (multi-select) · Add Folder · Paste (button or `Ctrl+V`) · Screenshot (drag a rectangle) ·
-✂ **Select Area** on any picture. Batch limit 5 / 10 / 20 / 50 / 100 with Remove Selected / All / Undo.
+✂ **Select Area** on any picture (zoom, fit, pan, rotate, crop; results are added to the same image). Batch limit 5 / 10 / 20 / 30 / 50 / 100 with Remove Selected / All / Undo.
 
 ## 2. Image queue
 Numbered thumbnails (**Image 1, 2, 3…**), status (Waiting / Working / Done / Error), ▲ ▼ reordering.
@@ -42,3 +42,10 @@ Learning language, your language, level, batch limit, minimum OCR confidence, th
 ## 9. Portable & safe → [Security](SECURITY.md)
 One folder with an `.exe`; no installer, admin rights, registry entries or auto-start; pinned dependencies,
 checksums, Defender scan in the build.
+
+## v1.3 additions
+* **Complete flashcards** — every grid cell is read on its own; missing rows / columns are recovered; the title counts as vocabulary → [Smart OCR](SMART_OCR.md)
+* **Accuracy levels** Fast / Balanced / Deep and a **coverage check** in the status bar → [OCR Modes](OCR_MODES.md)
+* **Select Area 2.0** — zoom, fit, pan, rotate, crop, several boxes, results added to the same image → [Select Area](SELECT_AREA.md)
+* **AI Smart safety net** — OCR pairs the AI leaves out are added back
+* **Wrapping toolbars** and screen-aware panel widths; progress bar; shortcuts `F5`, `Ctrl+O`, `Ctrl+Enter`

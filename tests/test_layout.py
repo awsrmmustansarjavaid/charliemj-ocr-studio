@@ -90,5 +90,59 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(to_plain(md), "Title\n\nx — y\n• w — m")
 
 
+class GridCompletionTests(unittest.TestCase):
+    """A card grid in which a whole row and a whole column were not found by the first OCR pass."""
+
+    def setUp(self):
+        from make_poster import GLOVES
+        self.pairs = GLOVES
+        self.all = card_grid(GLOVES, pitch=300)                       # 4 columns x 3 rows
+
+    def reader(self):
+        """Fake read_cell(box): returns the two lines of the pair whose label lies in the box."""
+        by_pair = {}
+        for i, (a, b) in enumerate(self.pairs):
+            ws = [w for w in self.all if w.y0 in (100 + (i // 4) * 300, 126 + (i // 4) * 300) and 40 + (i % 4) * 300 <= w.x0 < 40 + (i % 4) * 300 + 290]
+            by_pair[i] = (min(w.x0 for w in ws) + max(w.x1 for w in ws)) / 2
+        def read_cell(box, snap=True, role=None):
+            for i, (a, b) in enumerate(self.pairs):
+                cy = 100 + (i // 4) * 300 + 23
+                if box[0] <= by_pair[i] <= box[2] and box[1] <= cy <= box[3]:
+                    return [(a, 96.0), (b, 96.0)]
+            return []
+        return read_cell
+
+    def test_missing_row_and_column_are_recovered(self):
+        keep = [w for i, (a, b) in enumerate(self.pairs) if i // 4 != 0 and i % 4 != 0
+                for w in self.all if w.y0 in (100 + (i // 4) * 300, 126 + (i // 4) * 300)
+                and 40 + (i % 4) * 300 <= w.x0 < 40 + (i % 4) * 300 + 290]
+        without = analyze(keep, "Turkish", read_cell=None)
+        self.assertLess(len(without.rows), 12)                        # the first pass alone loses cells
+        res = analyze(keep, "Turkish", read_cell=self.reader(), size=(1100, 1100))
+        self.assertEqual(sorted(res.rows), sorted(self.pairs))        # ... the grid completion gets all 12 back
+        self.assertEqual(res.grid, (3, 4))
+
+    def test_picture_chrome_is_not_taken_for_a_missing_row(self):
+        res = analyze(self.all, "Turkish", read_cell=lambda box, snap=True, role=None: [("Posts", 90.0)], size=(1100, 1100))
+        self.assertEqual(len(res.rows), 12)
+
+
+class NotesTests(unittest.TestCase):
+    def test_title_pair_is_a_vocabulary_item_too(self):
+        from app.layout import Result, to_notes
+        res = Result(kind="bilingual", title="ELDİVEN ÇEŞİTLERİ", subtitle="Types of Gloves", rows=[("kışlık eldiven", "winter gloves")])
+        md = "|  # | T | E |\n|----|---|---|\n|  1 | kışlık eldiven | winter gloves |"
+        notes = to_notes(res, md)
+        self.assertIn("- **ELDİVEN ÇEŞİTLERİ** — Types of Gloves", notes)
+        self.assertNotIn("ELDİVEN ÇEŞİTLERİ** —", to_notes(res, md, title_vocab=False))
+
+    def test_ai_can_never_make_ocr_words_vanish(self):
+        from app.layout import merge_missing
+        md, added = merge_missing("# T\n- **gamze** — dimple", [("gamze", "dimple"), ("ben", "mole")])
+        self.assertEqual(added, 1)
+        self.assertIn("- **ben** — mole", md)
+        self.assertEqual(merge_missing("- **Gamze** — dimple", [("gamze", "dimple")])[1], 0)     # case / small fixes are not duplicates
+
+
 if __name__ == "__main__":
     unittest.main()

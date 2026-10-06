@@ -1,6 +1,35 @@
 # Changelog
 
-[← Back to main README](../README.md) · See also: [OCR Modes](OCR_MODES.md) · [Text Editor](EDITOR.md)
+[← Back to main README](../README.md) · See also: [OCR Modes](OCR_MODES.md) · [Select Area](SELECT_AREA.md) · [Text Editor](EDITOR.md)
+
+## v1.3.0 — Complete flashcards, a fast Select Area tool, results that stay with their image
+
+### Fixed
+- **Incomplete flashcards** (10 of 13 phrases). Causes found and fixed: touching labels were glued together, cells were
+  cut off at their borders, the first column and whole rows were never re-checked, and a read-again step could shorten words.
+  Every grid cell is now read on its own and **replaces** the global reading; missing rows and columns are recovered.
+  → [Smart OCR](SMART_OCR.md#complete-grid-reading-v13)
+- **The title is now a vocabulary item** too (12 pictures + title = 13 phrases).
+- **Select Area was slow and zoomed in too much.** Rewritten: whole picture shown by default, only the visible part is
+  rendered, instant zoom and pan. → [Select Area](SELECT_AREA.md)
+- **"Batch limit" errors while selecting areas.** Areas are now added to their image and do not use a batch slot.
+- **Toolbars were cut off** on small screens; they now wrap onto more rows. Panel widths follow the screen size.
+- **Raw OCR accents** (`kislik` → `kışlık`) are corrected with the Turkish-only model.
+- Selecting an area no longer redraws every card (that was a main cause of the slowness).
+
+### Added
+- **Select Area results go to the same image** (default): *✂ Area 1, 2 …* under its card and *Area n* under *Image N* in the editor.
+  Options: *This image / New image / Crop the image instead*.
+- **Select Area tool**: − / + / **Fit** / **Fit width** / **100 %**, pan, `Ctrl`+wheel zoom at the pointer, **rotate**, **crop**, undo edit, many boxes in one session.
+- **Accuracy levels** *Fast / Balanced / Deep*, and a **coverage check** in the status bar. → [OCR Modes](OCR_MODES.md)
+- **AI Smart safety net**: OCR pairs the AI leaves out are added back automatically.
+- Progress bar and queue messages while a batch runs; shortcuts `F5` (Process All), `Ctrl+O` (add images), `Ctrl+Enter` (extract text).
+- Settings: *OCR accuracy*, *title as vocabulary*, batch limit up to 100 (choices 5 / 10 / 20 / 30 / 50 / 100).
+
+### Internal
+- New file `app/widgets.py` (wrapping toolbars). `app/selector.py`, `app/ocr_engine.py` (`make_cell_reader`, `read_raw`) and `app/layout.py` (grid completion) rewritten.
+- Tests: **26 unit / integration tests** (including a real-OCR test of a 13-phrase flashcard) and an end-to-end window test.
+- Version resource and window title show **1.3.0**.
 
 ## v1.2.0 — Three OCR modes, Select Area, Text Editor
 

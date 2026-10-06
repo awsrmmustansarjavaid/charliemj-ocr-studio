@@ -31,7 +31,7 @@ The first version of this tool added OCR, but the result was **messy**: plain OC
 | Easy copying | Copy per image, selected, all, plain, original OCR |
 | Private & safe | Offline OCR, local AI only (localhost), no telemetry, pinned dependencies |
 | Clean, complete vocabulary | **Smart** (table) / **Raw** (every word) / **AI Smart** (title, headings, bullets) modes |
-| OCR only the part you need | **✂ Select Area** tool: each box becomes its own *Image N* |
+| OCR only the part you need | **✂ Select Area** tool (zoom, fit, crop): each box is added to the image it came from |
 | Ready-to-use study notes | **Text Editor** panel: automatic *Image N → title → headings → bullets*, formatting, DOCX / HTML / CSV export |
 | Lightweight & portable | Python + Tkinter + Tesseract; no Electron, no bundled AI models |
 

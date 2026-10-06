@@ -31,7 +31,8 @@ The whole path from input to export works **offline**; local AI is optional.
 | `ocr_engine.py` | Tesseract: words with boxes, Raw text, cell re-reading | `layout.Word`, Pillow, pytesseract |
 | `richtext.py` | document model (`Block`, `Run`) + exporters — **pure Python** | — |
 | `editor.py` | the formatted editor widget (`RichEditor`) | `richtext`, Tk |
-| `selector.py` | the Select Area window | Pillow, Tk |
+| `selector.py` | the Select Area tool: viewport rendering, zoom / fit / pan, rotate, crop, several boxes | Pillow, Tk |
+| `widgets.py` | `FlowFrame`: toolbars that wrap onto more rows on narrow panels | CustomTkinter |
 | `prompts.py` | prompts for the local AI | `config` |
 | `local_ai.py` | Ollama HTTP client (localhost only, stdlib `urllib`) | — |
 | `ui.py` | main window, queue, cards, threads, glue | all of the above |
@@ -95,3 +96,35 @@ flowchart LR
 * **New OCR language** → add its `.traineddata` and an entry in `config.LANGS`.
 * **New export format** → add a writer in `richtext.py` and a branch in `RichEditor.write`.
 * **Different OCR engine** → replace `ocr_engine.read_words / read_raw` (return `layout.Word` lists).
+
+## v1.3 additions
+
+### Captured areas belong to their image
+```text
+item (Image N)
+ ├── md / res / kind        the image's own result
+ └── areas[]                records of the same shape ("parent" = the item, "n" = 1, 2, …)
+       ├── Area 1  ──►  OCR in the current mode  ──►  its own text box in the card
+       └── Area 2  ──►  …
+editor_blocks():  Image N (title) → file name → notes → "Area 1" (h3) + notes → "Area 2" … → separator
+```
+An area does **not** count against the batch limit; the **New image** target of the tool still creates a normal item.
+
+### Grid completion pipeline (`layout.analyze` → `_lattice`)
+```text
+words → segments → pairs → orientation → heading
+      → lattice (columns by weighted fit, rows by spacing)
+      → every cell re-read by ocr_engine.make_cell_reader (wide crop, borders snapped to white gaps,
+        words kept by centre) → replaces the first reading
+      → missing rows between / above / below (accepted only if ≥ half of the columns read)
+      → Deep: single-language voting, second pass at larger scale
+      → coverage numbers (grid, unread, doubtful) → status bar
+```
+
+### Selector rendering
+Only the visible rectangle of the original picture is cropped and resized for every redraw
+(`AreaSelector.render`), boxes are kept in original-picture pixels, and OCR reads the original — see [Select Area](SELECT_AREA.md).
+
+### Thread safety
+Tk variables are never read inside worker threads (the accuracy level is read from the plain settings dict);
+workers only post callables to the UI queue.

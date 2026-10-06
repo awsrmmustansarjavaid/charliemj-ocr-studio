@@ -58,3 +58,30 @@ Raw mode finds every word. These checks run in `tests/test_ocr_integration.py`.
 
 ## Tuning
 Settings → *Ignore OCR text below this confidence* (default 45). Lower it if real text disappears; raise it if junk appears.
+
+## Complete grid reading (v1.3)
+
+Flashcards are usually a **grid**: a picture, a bold label and a small translation under it, repeated 3 × 4 times.
+The first OCR pass can lose cells there (labels almost touch their neighbours, a watermark crosses the picture, a
+whole row is missed). Version 1.3 therefore treats a grid as a **lattice** and reads it cell by cell:
+
+1. **Find the lattice.** The cells found by the first pass give the column centres and the row spacing. The column
+   spacing is fitted by weighted least squares, so one wrongly read cell cannot shift the far columns. A column in
+   which nothing was found is added when it lies next to a known column and inside the picture.
+2. **Snap the cell borders.** Each border is moved into the **widest empty gap** between two labels (never into the
+   space between two words of one label).
+3. **Read every cell on its own.** The crop is deliberately *wider* than the cell and read in sparse mode; then only
+   the words whose **centre** lies inside the cell are kept. No letter is cut off and no text of the neighbour leaks in.
+   The clean cell reading **replaces** the first reading (it only keeps the old text when the cell gives fewer than two lines).
+4. **Recover missing rows.** Rows between, above and below the found rows are read too. A row *above or below* the
+   table is accepted only when at least half of its columns read as *label + translation*, so phone-interface text
+   (user names, captions) can never become a row.
+5. **Deep OCR** additionally reads each cell with the single-language models and lets the readings vote, and retries
+   doubtful pictures at a larger scale.
+6. **Re-read the heading** (title + subtitle) as one clean block, then add it to the vocabulary list: a card with 12
+   pictures and a title gives **13 phrases**. (Setting: *Also list the picture's title as a vocabulary item*.)
+7. **Tidy.** If almost every translation starts with a small letter, a stray capital (`Sports`) is lowercased.
+8. **Report coverage** in the status bar (grid size, unreadable and doubtful cells).
+
+The result is tested on a generated flashcard with tightly packed labels, a watermark and phone-interface text:
+`tests/test_ocr_integration.py` expects **all 12 cells, the title, the subtitle and a 3 × 4 grid** — see [Testing](TESTING.md).

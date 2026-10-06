@@ -43,10 +43,11 @@ Typing every word from a flashcard by hand is slow, and normal OCR gives you a m
 ## Key features
 
 - 🧠 **Three OCR modes** — **Smart** (structure → clean *Original | Translation* table), **Raw** (every word, nothing filtered) and **AI Smart** (local AI writes a main title, headings, subheadings and bullet vocabulary). → [OCR Modes](docs/OCR_MODES.md)
-- ✂ **Select Area tool** — drag a box on the picture; each box becomes its own *Image N* and is OCR'd at once.
+- ✂ **Select Area tool** — zoom, fit, pan, rotate and crop; drag one or many boxes and the text is **added to the same image** (*Image 2 → Area 1, Area 2 …*) without using a batch slot. → [Select Area](docs/SELECT_AREA.md)
 - 📝 **Text Editor (panel 4)** — results flow in automatically as **Image N → main title → headings → bullets**; format with bold, italic, underline, size, colour, highlight, lists, alignment; find & replace, sort A–Z, remove duplicates; export **MD / TXT / HTML / DOCX / CSV**. → [Text Editor](docs/EDITOR.md)
 - 🔢 **One result per image** — cards titled **Image 1, Image 2, …** with a thumbnail, break lines between images and per-image *Copy, Raw, Smart, AI, Swap, Delete*. Numbers update automatically when you delete or reorder (▲ ▼).
-- 📸 **Input** — add many images, a folder, paste from the clipboard, or drag a screenshot area. Batch limit (default 20), Remove / Remove All / Undo.
+- 📸 **Input** — add many images, a folder, paste from the clipboard, or drag a screenshot area. Batch limit (default 20, up to 100), Remove / Remove All / Undo, a progress bar and the shortcuts `F5` / `Ctrl+O` / `Ctrl+Enter`.
+- 🎚 **Complete flashcards** — every grid cell is read on its own, missing rows and columns are recovered, the title counts as vocabulary (12 pictures + title = **13 phrases**); choose **Fast / Balanced / Deep** accuracy and watch the coverage check in the status bar.
 - 🎯 **Accurate on real posters** — ignores phone UI, captions and watermarks, recovers cells the first pass missed, never cuts words short. → [Smart OCR](docs/SMART_OCR.md)
 - 🤖 **Local AI (optional, no cloud)** — through [Ollama](https://ollama.com): Learn This, Clean, Table, Translate, Explain, Vocabulary, Flashcards. No account, no API key, text never leaves your PC. → [Local AI](docs/LOCAL_AI.md)
 - 🔒 **Safe by design** — offline OCR, localhost-only AI, no installer, no admin rights, no startup entries, pinned dependencies, checksummed builds. → [Security](docs/SECURITY.md)
@@ -96,7 +97,8 @@ Python 3.11 · CustomTkinter · Pillow · Tesseract (pytesseract) · Ollama (loc
 |----------|--------------------|
 | [Project Overview](docs/PROJECT_OVERVIEW.md) | What the program is, why it was built, goals |
 | [Features](docs/FEATURES.md) | Complete feature list |
-| [OCR Modes](docs/OCR_MODES.md) | Smart, Raw, AI Smart and the Select Area tool |
+| [OCR Modes](docs/OCR_MODES.md) | Smart, Raw, AI Smart, accuracy levels and the coverage check |
+| [Select Area](docs/SELECT_AREA.md) | The selection tool: zoom, fit, crop, rotate, results added to the same image |
 | [Text Editor](docs/EDITOR.md) | The 4th panel: automatic notes, formatting, tools, export |
 | [Smart OCR](docs/SMART_OCR.md) | How messy pictures become clean tables |
 | [Local AI](docs/LOCAL_AI.md) | Ollama setup, models, AI buttons, troubleshooting |
@@ -121,7 +123,8 @@ charliemj-ocr-studio/
 │   ├── ocr_engine.py               Tesseract: words + positions, Raw text, cell re-reading
 │   ├── richtext.py                 editor document model + MD/TXT/HTML/DOCX exporters (pure Python)
 │   ├── editor.py                   the formatted text editor panel
-│   ├── selector.py                 the ✂ Select Area tool
+│   ├── selector.py                 the ✂ Select Area tool (zoom, fit, pan, rotate, crop)
+│   ├── widgets.py                  FlowFrame: toolbars that wrap on narrow panels
 │   ├── prompts.py                  instructions for the local AI
 │   ├── local_ai.py                 optional local AI (Ollama, localhost only)
 │   └── ui.py                       the main window (4 panels)

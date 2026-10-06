@@ -23,6 +23,7 @@ from tkinter import colorchooser, filedialog, messagebox
 import customtkinter as ctk
 
 from . import richtext as rt
+from .widgets import FlowFrame
 from .richtext import Block, Run
 
 FAMILY = "Segoe UI"
@@ -48,53 +49,38 @@ class RichEditor(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(5, weight=1)
 
-        # ---- toolbar row 1: style, inline formatting, size
+        # ---- toolbars: ONE flowing strip (FlowFrame) - it wraps onto more rows when the panel is narrow
         self.style_var = tk.StringVar(value="Normal")
         self.size_var = tk.StringVar(value="13")
-        r1 = ctk.CTkFrame(self, fg_color="transparent")
-        r1.grid(row=0, column=0, sticky="w", padx=6, pady=(6, 1))
-        ctk.CTkOptionMenu(r1, variable=self.style_var, values=list(STYLES), width=104, height=28,
-                          command=lambda v: self.set_style(STYLES[v])).pack(side="left", padx=2)
+        self.hl_var = tk.StringVar(value="🖍 Highlight")
+        bar = FlowFrame(self)
+        bar.grid(row=0, column=0, sticky="ew", padx=6, pady=(6, 2))
+
+        def button(text, cmd, width=None, **kw):
+            return bar.add(ctk.CTkButton(bar, text=text, width=width or (34 if len(text) < 3 else 22 + 8 * len(text)), height=28,
+                                         command=cmd, **{**GRAY, **kw}))
+        bar.add(ctk.CTkOptionMenu(bar, variable=self.style_var, values=list(STYLES), width=104, height=28,
+                                  command=lambda v: self.set_style(STYLES[v])))
         for txt, tag, font in [("B", "b", ("Segoe UI", 13, "bold")), ("I", "i", ("Segoe UI", 13, "italic")),
                                ("U", "u", ("Segoe UI", 13, "underline")), ("S", "s", ("Segoe UI", 13, "overstrike"))]:
-            ctk.CTkButton(r1, text=txt, width=30, height=28, font=font, command=lambda t=tag: self.toggle(t), **GRAY).pack(side="left", padx=1)
-        ctk.CTkButton(r1, text="A−", width=32, height=28, command=lambda: self.bump(-2), **GRAY).pack(side="left", padx=(8, 1))
-        ctk.CTkOptionMenu(r1, variable=self.size_var, width=62, height=28, values=["9", "10", "12", "13", "14", "16", "18", "20", "24", "28", "32", "40"],
-                          command=lambda v: self.set_size(int(v))).pack(side="left", padx=1)
-        ctk.CTkButton(r1, text="A+", width=32, height=28, command=lambda: self.bump(2), **GRAY).pack(side="left", padx=1)
-
-        # ---- toolbar row 2: lists, alignment, colours
-        r2 = ctk.CTkFrame(self, fg_color="transparent")
-        r2.grid(row=1, column=0, sticky="w", padx=6, pady=1)
+            bar.add(ctk.CTkButton(bar, text=txt, width=30, height=28, font=font, command=lambda t=tag: self.toggle(t), **GRAY))
+        button("A−", lambda: self.bump(-2), 32)
+        bar.add(ctk.CTkOptionMenu(bar, variable=self.size_var, width=62, height=28, values=["9", "10", "12", "13", "14", "16", "18", "20", "24", "28", "32", "40"],
+                                  command=lambda v: self.set_size(int(v))))
+        button("A+", lambda: self.bump(2), 32)
         for txt, cmd in [("• List", self.bullets), ("1. List", self.numbers), ("⬅", lambda: self.align("left")),
                          ("↔", lambda: self.align("center")), ("➡", lambda: self.align("right")),
                          ("🎨 Color", self.color), ("― Line", self.hr), ("Clear fmt", self.clear_format)]:
-            ctk.CTkButton(r2, text=txt, width=44 if len(txt) < 3 else 66, height=28, command=cmd, **GRAY).pack(side="left", padx=1)
-        self.hl_var = tk.StringVar(value="🖍 Highlight")
-        ctk.CTkOptionMenu(r2, variable=self.hl_var, values=list(HIGHLIGHTS), width=104, height=28,
-                          command=self.highlight).pack(side="left", padx=1)
-
-        # ---- toolbar row 3: tools
-        r3 = ctk.CTkFrame(self, fg_color="transparent")
-        r3.grid(row=2, column=0, sticky="w", padx=6, pady=1)
+            button(txt, cmd)
+        bar.add(ctk.CTkOptionMenu(bar, variable=self.hl_var, values=list(HIGHLIGHTS), width=110, height=28, command=self.highlight))
         for txt, cmd in [("↶", lambda: self.safe(self.t.edit_undo)), ("↷", lambda: self.safe(self.t.edit_redo)),
                          ("🔍 Find", self.find_dialog), ("Sort A–Z", self.sort_bullets), ("No duplicates", self.dedupe),
                          ("⟳ Update from OCR", lambda: on_update and on_update()), ("⤺ Restore", self.restore)]:
-            ctk.CTkButton(r3, text=txt, width=34 if len(txt) < 3 else 92, height=28, command=cmd,
-                          **(PURPLE if "OCR" in txt else GRAY)).pack(side="left", padx=1)
-
-        # ---- toolbar row 4: AI buttons (acting on the selection, or on the whole editor)
-        r4 = ctk.CTkFrame(self, fg_color="transparent")
-        r4.grid(row=3, column=0, sticky="w", padx=6, pady=1)
-        for i, n in enumerate(ai_names):
-            ctk.CTkButton(r4, text=n, width=84, height=26, command=lambda n=n: on_ai and on_ai(n), **PURPLE).grid(
-                row=i // 4, column=i % 4, padx=1, pady=1)
-
-        # Auto-update switch and Focus button sit to the right of the AI buttons (the toolbar rows above are full)
-        ctk.CTkCheckBox(r4, text="Auto-update", variable=self.auto, width=20, checkbox_width=18, checkbox_height=18).grid(
-            row=0, column=4, padx=(16, 2))
-        ctk.CTkButton(r4, text="◀ Focus", width=84, height=26, command=lambda: on_focus and on_focus(), **GRAY).grid(
-            row=1, column=4, padx=(16, 2))
+            button(txt, cmd, **(PURPLE if "OCR" in txt else {}))
+        for n in ai_names:                                   # AI buttons act on the selection, or on the whole editor
+            button(n, lambda n=n: on_ai and on_ai(n), 92, **PURPLE)
+        bar.add(ctk.CTkCheckBox(bar, text="Auto-update", variable=self.auto, width=20, checkbox_width=18, checkbox_height=18))
+        button("◀ Focus", lambda: on_focus and on_focus())
 
         self.info = ctk.CTkLabel(self, text="", anchor="w", text_color="gray", font=("Segoe UI", 11))
         self.info.grid(row=4, column=0, sticky="ew", padx=10)
@@ -220,21 +206,21 @@ class RichEditor(ctk.CTkFrame):
                 t.insert("end-1c", HR_TEXT, ("hr",))
                 continue
             for r in b.runs:
-                t.insert("end-1c", r.text, self._run_tags(r))
+                rtag = self._rtag(r.bold or b.style in rt.STYLE_BOLD, r.italic or b.style == "h3", self._size(b.style, r.size))
+                t.insert("end-1c", r.text, self._run_tags(r) + (rtag,))        # font tag set now: no slow restyle pass
             if b.style != "normal":
                 t.tag_add("p_" + b.style, f"{ln}.0", f"{ln}.end+1c")
             if b.align != "left":
                 t.tag_add("al_" + b.align, f"{ln}.0", f"{ln}.end+1c")
             if re.match(r"^(• |\d+\. )", b.text):
                 t.tag_add("li", f"{ln}.0", f"{ln}.end+1c")
-        self.restyle()
         t.edit_modified(False)
         self._loading = False
         self.update_info()
 
     def load_blocks(self, blocks):
         """Load automatically generated content (keeps a backup of the previous text for 'Restore')."""
-        if self.t.get("1.0", "end-1c").strip():
+        if self.dirty and self.t.get("1.0", "end-1c").strip():      # automatic text can be rebuilt; only the user's edits need a backup
             self._backup = self.get_blocks()
         self.set_blocks(blocks)
         self.t.edit_reset()

@@ -1,33 +1,52 @@
 # Testing
 
-[← Back to main README](../README.md) · Previous: [User Guide](USER_GUIDE.md) · Next: [Roadmap](ROADMAP.md)
+[← Back to main README](../README.md) · Related: [Smart OCR](SMART_OCR.md) · [Architecture](ARCHITECTURE.md)
 
-Run everything: `python -m unittest discover -s tests -v`   ·   UI test: `xvfb-run -a python tests/smoke_ui.py` (Linux)
-or `python tests/smoke_ui.py` (Windows, with a display).
+The project has **three layers of tests**. All of them run on Windows (in the GitHub build) and on Linux.
 
-| File | What it checks | Needs |
-|------|----------------|-------|
-| `tests/test_layout.py` | structure detection on synthetic word boxes: columns, pairs, orientation, noise, text fallback, Markdown round-trip, empty input | nothing |
-| `tests/test_richtext.py` | Markdown → blocks, tables → bullets, exports (MD / TXT / HTML), **DOCX is valid** (zip + XML), vocabulary pairs | nothing |
-| `tests/test_ocr_integration.py` | **real Tesseract** on a generated vocabulary poster: ≥ 11 / 12 pairs, no fake title, no caption rows, **Raw contains every word** | Tesseract (skipped if missing) |
-| `tests/smoke_ui.py` | the real window driven like a user (see below) | a display (Xvfb) + Tesseract |
-| `tests/make_poster.py` | helper: builds the test poster (3×5 photo grid, watermark, phone UI, caption) | Pillow |
+```bash
+pip install -r requirements.txt
+python -m unittest discover -s tests -v          # 26 unit + integration tests
+python tests/smoke_ui.py                         # end-to-end test of the real window (needs a display)
+```
 
-## What the UI smoke test covers
-Starts a **fake Ollama server**, then: opens images → Smart *Process All* → checks the editor was built automatically
-(*Image 1* title, main title, *Vocabulary*, bullets, separators) → **Raw** contains every word → **AI Smart** produces
-h1 / h2 / h3 + bullets → **Select Area** inserts a new *Image N* → reordering renumbers the editor → **Swap** → typing
-in the editor protects it from automatic updates, **Update** and **Restore** → an editor **AI button** → exports
-(MD, TXT, HTML, DOCX, CSV with image numbers) → the selection window with simulated mouse events → **Focus** mode →
-the AI status label.
+## 1. Unit tests (no GUI, no OCR)
 
-## In CI
-`.github/workflows/build.yml` runs `test_layout` and `test_richtext` (blocking) and `test_ocr_integration`
-(informational) before building the `.exe`.
+| File | What it checks |
+|------|----------------|
+| `tests/test_layout.py` | segments, noise filter, card grids, two-column tables, orientation (Urdu script), empty input, Markdown round trip, **grid completion** (a missing row *and* column are recovered), phone-interface text is never taken for a row, **title counted as vocabulary**, **AI safety net** (`merge_missing`) |
+| `tests/test_richtext.py` | Markdown → blocks, tables → bullets, Markdown / plain text / HTML export, vocabulary pairs for CSV, **DOCX is a valid zip with well-formed XML** |
+
+## 2. Integration tests (real Tesseract)
+
+`tests/test_ocr_integration.py` is skipped automatically when Tesseract is not installed. It generates test pictures
+(`tests/make_poster.py`, Pillow only) and runs the real OCR:
+
+| Test | Picture | Expectation |
+|------|---------|-------------|
+| Poster, Smart | 3 × 5 photo grid, watermark, phone UI, caption | ≥ 11 of 12 pairs exact, no title from "Posts", caption is not a row |
+| Poster, Raw | same | every word of the poster is in the Raw text |
+| **Glove card, Smart** | 4 × 3 grid, labels almost touching, watermark, title + subtitle | **all 12 cells exact, title + subtitle exact, grid 3 × 4, 0 unread cells** |
+| **Glove card, notes** | same | **13 vocabulary bullets** (12 pictures + the title) |
+| Glove card, Raw | same | every word, with the right accents |
+
+## 3. End-to-end window test
+
+`tests/smoke_ui.py` starts the real application (headless with `xvfb-run` on Linux) with a fake local-AI server and walks through:
+
+1. Smart **Process All** → results in the cards and the editor (*Image 1 → heading → bullets*, separators)
+2. **Raw** mode → complete text, *Raw text* heading in the editor
+3. **AI Smart** (fake model) → h1 / h2 / h3 + bullets; AI that forgets a word → the word is added back
+4. **Select Area → This image**: no new image, an *Area 1* record, *Area 1* under *Image 1* in the editor, no batch slot used
+5. **Select Area → New image** and removing an area
+6. reorder → *Image N* renumbers in cards and editor
+7. **Swap** columns · edit protection (your edits are not overwritten) · **⤺ Restore** · forced update
+8. exports: Markdown, TXT, HTML, DOCX, CSV · focus mode · AI status
+9. the **selector window** with simulated mouse: zoom, Fit, Fit width, 100 %, drag a box, **crop**, **rotate**, undo edit
 
 ## Manual checklist before a release
-1. Process 2–3 of your own screenshots in each mode.
-2. Select Area on a crowded picture; delete / reorder images and watch the numbers.
-3. Format something in the editor, export DOCX, open it in Word.
-4. With Ollama running: AI Smart and one AI button. Without Ollama: AI Smart falls back to Smart.
-5. Verify the download against `SHA256SUMS.txt` ([Security](SECURITY.md)).
+1. Process 20 real flashcards in **Balanced**; compare the count of phrases with the pictures; re-run doubtful ones in **Deep**.
+2. Select Area on a tall screenshot: zoom, fit, pan, send a box to *This image*; check cards and editor.
+3. Delete and reorder images and watch the numbers.
+4. Export DOCX / HTML and open them; import the CSV in a spreadsheet.
+5. With Ollama stopped, run **AI Smart**: the Smart result must appear with a message.
