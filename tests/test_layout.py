@@ -4,7 +4,11 @@ Unit tests for app/layout.py.
 They use synthetic word boxes (no OCR, no GUI), so they run anywhere:
     python -m unittest discover -s tests -v
 """
+import os
+import sys
 import unittest
+
+sys.path.insert(0, os.path.dirname(__file__))      # lets "from make_poster import ..." work however the tests are started
 
 from app.layout import (Word, analyze, build_segments, drop_noise, extract_pairs,
                         target_score, to_markdown, to_plain)

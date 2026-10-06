@@ -10,6 +10,10 @@ python -m unittest discover -s tests -v          # 26 unit + integration tests
 python tests/smoke_ui.py                         # end-to-end test of the real window (needs a display)
 ```
 
+The GitHub workflow runs `python -m unittest tests.test_layout tests.test_richtext` (**blocking**: the build stops if one fails) and
+`python -m unittest tests.test_ocr_integration` (**informational**: a font or Tesseract difference on the runner must not block the
+`.exe`). The test files add their own folder to the import path, so every way of starting them works.
+
 ## 1. Unit tests (no GUI, no OCR)
 
 | File | What it checks |

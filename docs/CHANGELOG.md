@@ -28,6 +28,7 @@
 
 ### Internal
 - New file `app/widgets.py` (wrapping toolbars). `app/selector.py`, `app/ocr_engine.py` (`make_cell_reader`, `read_raw`) and `app/layout.py` (grid completion) rewritten.
+- Tests start correctly from the repository root (`python -m unittest tests.test_layout …`) as well as with `discover -s tests`, exactly as in the GitHub build.
 - Tests: **26 unit / integration tests** (including a real-OCR test of a 13-phrase flashcard) and an end-to-end window test.
 - Version resource and window title show **1.3.0**.
 
