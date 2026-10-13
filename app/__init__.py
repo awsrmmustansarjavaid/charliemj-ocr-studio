@@ -1,10 +1,10 @@
-"""Charlie MJ OCR & Language Studio - application package (v2.1)."""
+"""Charlie MJ OCR & Language Studio - application package (v2.2)."""
 from __future__ import annotations
 
 import difflib
 import re
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 
 
 def _lossless_norm(text):
