@@ -1,11 +1,9 @@
-"""Targeted second-pass recovery for screenshots that OCR as plain text.
+"""Targeted recovery for screenshots that initially look like plain text.
 
-This is deliberately outside ``ui.py`` so the reliability layer can be tested
-and evolved without changing the four-panel UI implementation. Balanced OCR
-normally performs one full-image pass; when a dense image produces a plain-text
-result with enough lines to plausibly be a grid/card, this layer retries the
-same image at 3x scale and keeps the more structured result when it scores
-better.
+Smart OCR is intentionally a full-image pass first.  Some dense bilingual
+screenshots have enough OCR words to be useful but not enough clean geometric
+pairs on the first pass, so they can be classified as plain text.  This module
+adds a bounded structural retry without changing the four-panel UI.
 """
 from __future__ import annotations
 
@@ -21,19 +19,53 @@ def _recover(self, original, img, min_pairs):
         return best
 
     code, c1, c2 = self.codes()
+    # One bounded 3x pass is enough to recover small text without making every
+    # ordinary screenshot pay the cost of a second OCR run.
     words, grid = ocr_engine.read_words(img, code, 3)
     reader = ocr_engine.make_cell_reader(grid, code, c1, c2)
+    refiner = ocr_engine.make_refiner(grid, c1, c2)
+
     retry = layout.analyze(
         words,
         cfg["lang"],
         cfg["min_conf"],
-        ocr_engine.make_refiner(grid, c1, c2),
+        refiner,
         reader,
         min_pairs=min_pairs,
         size=grid.size,
         deep=True,
     )
-    return retry if layout.score(retry) > layout.score(best) else best
+
+    # A dense screenshot can have several real bilingual cards while the first
+    # pass misses just enough pair geometry to fail the normal min_pairs gate.
+    # Relax only that classification gate for the recovery pass; never accept
+    # fewer than three recovered rows for a whole-image Smart result.
+    relaxed = retry
+    if getattr(retry, "kind", "") != "bilingual":
+        relaxed = layout.analyze(
+            words,
+            cfg["lang"],
+            cfg["min_conf"],
+            refiner,
+            reader,
+            min_pairs=1,
+            size=grid.size,
+            deep=True,
+        )
+
+    candidates = [best]
+    if getattr(retry, "kind", "") == "bilingual":
+        candidates.append(retry)
+    if getattr(relaxed, "kind", "") == "bilingual" and len(getattr(relaxed, "rows", ())) >= max(3, min_pairs):
+        candidates.append(relaxed)
+
+    # Prefer a genuine structured result once it contains a real table-sized
+    # set of rows.  Otherwise retain the original full-text result rather than
+    # risking a false table classification.
+    structured = [r for r in candidates if getattr(r, "kind", "") == "bilingual" and len(getattr(r, "rows", ())) >= max(3, min_pairs)]
+    if structured:
+        return max(structured, key=layout.score)
+    return best
 
 
 def install(AppClass):
