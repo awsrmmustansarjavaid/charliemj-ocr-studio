@@ -45,8 +45,12 @@ def _install_lossless_merge():
                     preserved = True
                     break
 
-                # Same-length fuzzy matching permits harmless OCR substitutions,
-                # but prevents word12 from being mistaken for word1.
+                # Fuzzy matching is only for OCR substitutions. Numeric tokens
+                # identify distinct vocabulary entries (e.g. word12 != word10),
+                # so a changed number must never make two pairs collide.
+                if (re.findall(r"\d+", key[0]) != re.findall(r"\d+", have_key[0]) or
+                        re.findall(r"\d+", key[1]) != re.findall(r"\d+", have_key[1])):
+                    continue
                 if (len(key[0]) != len(have_key[0]) or
                         len(key[1]) != len(have_key[1])):
                     continue
@@ -71,6 +75,7 @@ def _install_lossless_merge():
     # references imported before this package initializer completes get patched too.
     layout.__dict__["_lossless_norm"] = _lossless_norm
     layout.__dict__["difflib"] = difflib
+    layout.__dict__["re"] = re
     original.__code__ = merge_missing.__code__
     original.__defaults__ = merge_missing.__defaults__
     original.__doc__ = merge_missing.__doc__
