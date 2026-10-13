@@ -14,23 +14,26 @@ try:
 except Exception:
     pass
 
-from app.ui import App  # noqa: E402  (imported after the DPI call on purpose)
+from app.ui import App  # noqa: E402
 from app.batch_runtime import install as install_unlimited_batch  # noqa: E402
 from app.complete_ocr import install as install_complete_ocr  # noqa: E402
 from app.v2_truth import install as install_ocr_truth  # noqa: E402
-from app.workspace_ui import install as install_study_workspace  # noqa: E402
+from app.languages import install as install_languages  # noqa: E402
+from app.workspace_ui import install as install_study_workspace, StudyWorkspaceWindow  # noqa: E402
+from app.menu_bar import install as install_menu_bar  # noqa: E402
 
-# Patch the App class BEFORE App() is constructed.  This is important because
-# the original constructor binds button callbacks while it builds the panels.
+# App class patches happen before construction because the constructor binds UI
+# callbacks while it creates the four main panels.
+install_languages()
 install_unlimited_batch(App)
 install_ocr_truth()
 
 
 def main():
-    """Create the main window, install additive OCR/study tools and start Tk."""
     app = App()
     install_complete_ocr(app)
     install_study_workspace(app)
+    install_menu_bar(app, lambda: StudyWorkspaceWindow(app))
     app.mainloop()
 
 
