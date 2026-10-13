@@ -1,12 +1,9 @@
-# =============================================================================
-# build.yml - reproducible Windows v2 portable build
-# =============================================================================
 name: Build Windows portable EXE
 
 on:
-  workflow_dispatch:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -30,7 +27,10 @@ jobs:
           Copy-Item "C:\Program Files\Tesseract-OCR" -Destination tesseract -Recurse
           Get-ChildItem tesseract -Filter *.exe | Where-Object Name -ne "tesseract.exe" | Remove-Item
           Remove-Item tesseract\doc -Recurse -ErrorAction SilentlyContinue
-          $base = "https://github.com/tesseract-ocr/tessdata_fast/raw/main"
+          # Use tessdata_best for the regression suite and portable build. The higher-quality
+          # language models materially improve Turkish diacritics while preserving the same
+          # Tesseract engine and offline architecture.
+          $base = "https://github.com/tesseract-ocr/tessdata_best/raw/main"
           foreach ($l in "eng","tur","urd","ara","fas") {
             Invoke-WebRequest "$base/$l.traineddata" -OutFile "tesseract\tessdata\$l.traineddata"
           }
@@ -52,28 +52,29 @@ jobs:
 
       - name: Build EXE
         shell: pwsh
-        run: |
-          pyinstaller --noconfirm --noconsole --onedir --noupx --name CharlieMJ-OCR `
-            --version-file version_info.txt --collect-all customtkinter main.py
-          Copy-Item tesseract -Destination dist\CharlieMJ-OCR\tesseract -Recurse
+        run: .\build.bat
 
       - name: Defender scan
         shell: pwsh
-        continue-on-error: true
         run: |
-          & "$env:ProgramFiles\Windows Defender\MpCmdRun.exe" -Scan -ScanType 3 -File "$PWD\dist\CharlieMJ-OCR" -DisableRemediation
-          Write-Host "Defender exit code: $LASTEXITCODE (0 = no threats found)"
+          if (Test-Path "dist\CharlieMJ-OCR") {
+            Start-MpScan -ScanPath "dist\CharlieMJ-OCR" -ScanType CustomScan
+          }
 
       - name: Checksums and final v2 zip
         shell: pwsh
         run: |
-          Get-ChildItem dist\CharlieMJ-OCR -Recurse -File |
-            Get-FileHash -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash)  $($_.Path.Substring($PWD.Path.Length + 1))" } |
-            Set-Content dist\CharlieMJ-OCR\SHA256SUMS.txt
-          Compress-Archive -Path dist\CharlieMJ-OCR -DestinationPath charliemj-ocr-studio-v2-final.zip
+          if (Test-Path "dist\CharlieMJ-OCR") {
+            Get-ChildItem -Path "dist\CharlieMJ-OCR" -Recurse -File | Get-FileHash -Algorithm SHA256 | Out-File "dist\CharlieMJ-OCR\SHA256SUMS.txt"
+            if (Test-Path "charliemj-ocr-studio-v2-final.zip") { Remove-Item "charliemj-ocr-studio-v2-final.zip" -Force }
+            Compress-Archive -Path "dist\CharlieMJ-OCR\*" -DestinationPath "charliemj-ocr-studio-v2-final.zip" -CompressionLevel Optimal
+          }
 
-      - uses: actions/upload-artifact@v4
+      - name: Run actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4
         with:
           name: charliemj-ocr-studio-v2-final
-          path: charliemj-ocr-studio-v2-final.zip
+          path: |
+            charliemj-ocr-studio-v2-final.zip
+            dist/CharlieMJ-OCR/SHA256SUMS.txt
+          if-no-files-found: error
