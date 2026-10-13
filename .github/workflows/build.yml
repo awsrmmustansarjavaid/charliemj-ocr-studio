@@ -119,16 +119,17 @@ jobs:
           if (Test-Path $distPath) {
             $checksumPath = Join-Path $distPath "SHA256SUMS.txt"
             $checksumTempPath = Join-Path $distPath "SHA256SUMS.txt.tmp"
+            $distRoot = (Resolve-Path $distPath).Path
 
-            # Never hash the checksum file while it is being created. Build the complete
-            # checksum manifest from the other files first, then atomically move it into
-            # its final name so subsequent steps only see a fully written file.
+            # Never hash SHA256SUMS.txt itself while it is being created. Generate the
+            # complete manifest from the other files into a temporary file, then move it
+            # into its final name only after the manifest has been fully written.
             if (Test-Path $checksumPath) { Remove-Item $checksumPath -Force }
             if (Test-Path $checksumTempPath) { Remove-Item $checksumTempPath -Force }
             Get-ChildItem -Path $distPath -Recurse -File |
-              Where-Object FullName -ne (Join-Path (Resolve-Path $checksumPath).Path "") |
+              Where-Object Name -ne "SHA256SUMS.txt" |
               Get-FileHash -Algorithm SHA256 |
-              ForEach-Object { "{0} *{1}" -f $_.Hash, $_.Path.Substring((Resolve-Path $distPath).Path.Length + 1) } |
+              ForEach-Object { "{0} *{1}" -f $_.Hash, $_.Path.Substring($distRoot.Length + 1) } |
               Set-Content -Path $checksumTempPath -Encoding UTF8
             Move-Item -Path $checksumTempPath -Destination $checksumPath -Force
 
