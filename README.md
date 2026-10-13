@@ -1,7 +1,7 @@
 <!-- Charlie MJ OCR & Language Studio — current repository guide -->
 
 <p align="center">
-  <img src="assets/thumbnail.svg" alt="Charlie MJ OCR & Language Studio — key features" width="920">
+  <img src="assets/CharlieMJ-OCR-v2.3.0-thumbnail.png" alt="Charlie MJ OCR & Language Studio — key features" width="920">
 </p>
 
 <h1 align="center">Charlie MJ OCR &amp; Language Studio</h1>
@@ -16,6 +16,16 @@
   <img alt="OCR" src="https://img.shields.io/badge/OCR-Tesseract%20offline-green">
   <img alt="AI" src="https://img.shields.io/badge/AI-Ollama%20local-purple">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-lightgrey">
+</p>
+
+<p align="center">
+  <img src="assets/thumbnail.svg" alt="Charlie MJ OCR & Language Studio — key features" width="920">
+</p>
+
+<p align="center">
+  <a href="./downloads/charliemj-ocr-studio-v1.zip">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20Download-Portable%20v1-blue?style=for-the-badge" alt="Download portable build">
+  </a>
 </p>
 
 <p align="center">
