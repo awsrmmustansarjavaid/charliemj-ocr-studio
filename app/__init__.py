@@ -1,10 +1,10 @@
-"""Charlie MJ OCR & Language Studio - application package (v2.0)."""
+"""Charlie MJ OCR & Language Studio - application package (v2.1)."""
 from __future__ import annotations
 
 import difflib
 import re
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 
 def _lossless_norm(text):
@@ -44,15 +44,10 @@ def _install_lossless_merge():
                 if key == have_key:
                     preserved = True
                     break
-
-                # Fuzzy matching is only for OCR substitutions. Numeric tokens
-                # identify distinct vocabulary entries (e.g. word12 != word10),
-                # so a changed number must never make two pairs collide.
                 if (re.findall(r"\d+", key[0]) != re.findall(r"\d+", have_key[0]) or
                         re.findall(r"\d+", key[1]) != re.findall(r"\d+", have_key[1])):
                     continue
-                if (len(key[0]) != len(have_key[0]) or
-                        len(key[1]) != len(have_key[1])):
+                if (len(key[0]) != len(have_key[0]) or len(key[1]) != len(have_key[1])):
                     continue
                 left = difflib.SequenceMatcher(None, key[0], have_key[0]).ratio()
                 right = difflib.SequenceMatcher(None, key[1], have_key[1]).ratio()
@@ -64,15 +59,9 @@ def _install_lossless_merge():
 
         if not missing:
             return md, 0
-
         block = "\n".join(f"- **{a}** — {b}" for a, b in missing)
-        return (
-            md.rstrip() + "\n\n## More vocabulary (from OCR)\n" + block,
-            len(missing),
-        )
+        return md.rstrip() + "\n\n## More vocabulary (from OCR)\n" + block, len(missing)
 
-    # Replace the function object itself, not merely the module attribute, so
-    # references imported before this package initializer completes get patched too.
     layout.__dict__["_lossless_norm"] = _lossless_norm
     layout.__dict__["difflib"] = difflib
     layout.__dict__["re"] = re
