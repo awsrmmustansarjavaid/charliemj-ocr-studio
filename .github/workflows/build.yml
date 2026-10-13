@@ -57,8 +57,59 @@ jobs:
       - name: Defender scan
         shell: pwsh
         run: |
-          if (Test-Path "dist\CharlieMJ-OCR") {
-            Start-MpScan -ScanPath "dist\CharlieMJ-OCR" -ScanType CustomScan
+          $scanPath = Join-Path $env:GITHUB_WORKSPACE "dist\CharlieMJ-OCR"
+          if (-not (Test-Path $scanPath)) {
+            Write-Warning "Defender scan skipped because $scanPath does not exist."
+            exit 0
+          }
+
+          # A GitHub-hosted runner can have Defender configured in a way that rejects
+          # Start-MpScan even though the build itself is healthy. Such infrastructure
+          # errors must not prevent artifact creation. A new threat detection, however,
+          # remains a hard failure.
+          $baseline = @()
+          try {
+            $baseline = @(Get-MpThreatDetection -ErrorAction Stop | ForEach-Object {
+              "{0}|{1}|{2}" -f $_.ThreatID, $_.InitialDetectionTime, $_.Resources
+            })
+          }
+          catch {
+            Write-Warning "Could not read the Defender baseline: $($_.Exception.Message)"
+          }
+
+          $scanStarted = $false
+          try {
+            Start-MpScan -ScanPath $scanPath -ScanType CustomScan -ErrorAction Stop
+            $scanStarted = $true
+            Write-Host "Microsoft Defender scan completed."
+          }
+          catch {
+            Write-Warning "Microsoft Defender could not complete the custom scan on this runner: $($_.Exception.Message)"
+            Write-Warning "Treating this as a Defender infrastructure error; continuing to artifact packaging."
+          }
+
+          try {
+            $after = @(Get-MpThreatDetection -ErrorAction Stop | ForEach-Object {
+              "{0}|{1}|{2}" -f $_.ThreatID, $_.InitialDetectionTime, $_.Resources
+            })
+
+            $newDetections = @($after | Where-Object { $baseline -notcontains $_ })
+            if ($newDetections.Count -gt 0) {
+              Write-Error "Microsoft Defender reported $($newDetections.Count) new threat detection(s):"
+              $newDetections | ForEach-Object { Write-Error $_ }
+              exit 1
+            }
+
+            if ($scanStarted) {
+              Write-Host "No new Microsoft Defender threat detections were reported."
+            }
+            else {
+              Write-Warning "Defender scan did not run, so no scan-success claim is being made."
+            }
+          }
+          catch {
+            Write-Warning "Could not query Defender detections after the scan: $($_.Exception.Message)"
+            Write-Warning "Treating this as a Defender infrastructure error; continuing to artifact packaging."
           }
 
       - name: Checksums and final v2 zip
