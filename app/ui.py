@@ -151,7 +151,7 @@ class App(ctk.CTk):
         f = FlowFrame(p)
         f.pack(fill="x", padx=4, pady=(2, 8))
         for txt, cmd in [("Copy Selected", self.copy_sel), ("Copy All", lambda: self.copy(self.combined_text())),
-                         ("Copy Plain", lambda: self.copy(layout.to_plain(self.combined_text()))),
+                         ("Copy Plain", lambda: self.copy(layout.to_plain(self.combined_text())),
                          ("Copy Original OCR", lambda: self.copy(self.combined_text("raw"))),
                          ("🧩 Combine → Editor", lambda: self.sync_editor(True)), ("Clear", self.clear_all)]:
             f.add(ctk.CTkButton(f, text=txt, width=118, height=28, command=cmd))
@@ -512,7 +512,7 @@ class App(ctk.CTk):
                          ("🗑", lambda: self.remove_items([it]))]:
             row.add(ctk.CTkButton(row, text=txt, width=50, height=26, command=cmd, **GRAY))
         self.card_box(card, it, 170)
-        for a in it["areas"]:                                   # captured areas of this image
+        for a in it["areas"]:
             ah = FlowFrame(card)
             ah.pack(fill="x", pady=(6, 0))
             ah.add(ctk.CTkLabel(ah, text=f"✂ Area {a['n']}", font=("Segoe UI", 13, "bold")))
@@ -597,7 +597,7 @@ class App(ctk.CTk):
                    read again at a larger scale and the more complete result wins
         """
         code, c1, c2 = self.codes()
-        level = cfg["accuracy"]                              # plain value: Tk variables must not be read from a worker thread
+        level = cfg["accuracy"]
         best = None
         for scale in ((None, 3) if level == "Deep" else (None,)):
             words, g = ocr_engine.read_words(img, code, scale)
@@ -620,10 +620,10 @@ class App(ctk.CTk):
         hint = (layout.to_markdown(res, cfg["lang"], cfg["native"]) if res.kind == "bilingual" else res.raw)
         try:
             text = self.ai_smart(rec["img"], hint + "\n\nAll OCR lines:\n" + res.raw)
-        except Exception as e:                                # no AI available -> still give the Smart result
-            return "Smart", res, str(e) or e.__class__.__name__, ""
+        except Exception as e:
+            return "Smart", res, str(e), ""
         extra = [(res.title, res.subtitle)] if cfg["title_vocab"] and res.title and res.subtitle else []
-        text, added = layout.merge_missing(text, res.rows, extra)          # the AI can never make OCR words vanish
+        text, added = layout.merge_missing(text, res.rows, extra)
         return "AI Smart", text, None, (f" (+{added} item(s) the AI left out were added from the OCR)" if added else "")
 
     def apply(self, rec, mode, out, warn=None, note=""):
@@ -681,7 +681,7 @@ class App(ctk.CTk):
                 try:
                     r, ok = self.read(it, mode), True
                 except Exception:
-                    r, ok = None, False                       # mark this image as error, go on with the rest
+                    r, ok = None, False
                 self.post(lambda it=it, r=r, ok=ok: self.apply(it, *r) if ok else self.set_status(it, "error"))
             self.post(lambda: (self.progress.pack_forget(), self.refresh_all(), self.sync_editor(),
                                self.status(f"✓ Finished {len(todo)} image(s)")))
@@ -715,7 +715,7 @@ class App(ctk.CTk):
                     rt.Block(runs=[rt.Run(it["name"], italic=True, size=10, color="#888888")])]
             if notes:
                 out += rt.md_to_blocks(notes, top="h1")
-            for a, t in areas:                                   # captured areas stay under THEIR image
+            for a, t in areas:
                 out.append(rt.Block("h3", runs=[rt.Run(f"Area {a['n']}")]))
                 out += rt.md_to_blocks(t, top="h3")
             out.append(rt.Block(hr=True))
