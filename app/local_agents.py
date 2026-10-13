@@ -1,8 +1,8 @@
 """Small local-agent layer backed entirely by Ollama on localhost.
 
-Agents are roles, not separate cloud services.  They all use the same local
+Agents are roles, not separate cloud services. They all use the same local
 Ollama server and can receive OCR text and, for vision-capable models, the
-original image.  This keeps the portable app offline-first while giving the
+original image. This keeps the portable app offline-first while giving the
 user explicit local AI roles for OCR structuring and study work.
 """
 from __future__ import annotations
@@ -72,6 +72,11 @@ def run(name: str, text: str, image=None, timeout: int = 300) -> str:
     )
 
 
-def status() -> tuple[bool, list[str], str]:
-    """Return the current local Ollama status for the UI."""
-    return local_ai.status(cfg["ollama_url"])
+def status(url: str | None = None) -> tuple[bool, list[str], str]:
+    """Return current local Ollama status.
+
+    ``url`` is optional for compatibility with the AI center/health UI. When
+    omitted, the configured localhost URL is used; callers may supply a URL
+    explicitly while testing a connection field.
+    """
+    return local_ai.status((url or cfg["ollama_url"]).strip())
