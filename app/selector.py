@@ -77,8 +77,8 @@ class AreaSelector(tk.Toplevel):
             a, b = self.to_cv(bx0, by0), self.to_cv(bx1, by1)
             self.cv.create_rectangle(*a, *b, outline="#22c55e", width=2)
             self.cv.create_text(a[0] + 6, a[1] + 4, text=str(n), fill="#22c55e", anchor="nw", font=("Segoe UI", 14, "bold"))
-        self.vs.set(max(0, self.oy) / H, min(1, (self.oy + vh) / H)
-        self.hs.set(max(0, self.ox) / W, min(1, (self.ox + vw) / W)
+        self.vs.set(max(0, self.oy) / H, min(1, (self.oy + vh) / H))
+        self.hs.set(max(0, self.ox) / W, min(1, (self.ox + vw) / W))
         self.zoom_lbl.configure(text=f"{k * 100:.0f}%")
 
     def to_cv(self, ix, iy):
