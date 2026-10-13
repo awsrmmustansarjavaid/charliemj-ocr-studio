@@ -6,9 +6,11 @@ REM ============================================================================
 pip install -r requirements-build.txt || goto :err
 python -m unittest discover -s tests || goto :err
 
-REM Explicitly include the area selector because the packaged UI imports it at runtime.
+REM Explicitly collect the whole app package so runtime imports such as
+REM app.selector cannot be omitted from the frozen EXE.
+python -c "import app.selector; print('app.selector import OK')" || goto :err
 pyinstaller --noconfirm --noconsole --onedir --noupx --name CharlieMJ-OCR ^
-  --version-file version_info.txt --collect-all customtkinter --hidden-import app.selector main.py || goto :err
+  --version-file version_info.txt --collect-all customtkinter --collect-submodules app main.py || goto :err
 
 xcopy /E /I /Y tesseract dist\CharlieMJ-OCR\tesseract
 powershell -NoProfile -Command "Get-FileHash dist\CharlieMJ-OCR\CharlieMJ-OCR.exe -Algorithm SHA256 | ForEach-Object { $_.Hash + '  CharlieMJ-OCR.exe' } | Set-Content dist\CharlieMJ-OCR\SHA256SUMS.txt"
