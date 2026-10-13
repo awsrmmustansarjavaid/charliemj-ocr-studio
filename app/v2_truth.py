@@ -1,19 +1,14 @@
 """OCR truth and coverage safeguards for CharlieMJ OCR Studio v2.
 
-This module is deliberately independent from Tesseract and Ollama.  It wraps
- the existing deterministic layout pipeline instead of replacing it, and keeps
-an immutable snapshot of everything the OCR engine reported before Smart/AI
-post-processing can filter or rewrite anything.
-
-The key rule is simple: AI may improve presentation, but it may never delete
-an OCR-detected item.  A second conservative geometry pass also recovers pairs
-that the primary layout pass failed to pair.
+This module wraps the existing deterministic layout pipeline instead of
+replacing it. OCR observations are snapshotted before Smart/AI presentation,
+and conservative geometry recovery restores vocabulary pairs missed by the
+primary pairing pass.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 import re
-from typing import Iterable
 
 
 @dataclass(frozen=True)
@@ -26,7 +21,7 @@ class OCRTruthItem:
 
 @dataclass(frozen=True)
 class OCRCoverage:
-    """Counts describing what happened to the OCR source text."""
+    """Counts describing how completely OCR observations are represented."""
     detected: int
     represented: int
     unrepresented: int
@@ -34,34 +29,33 @@ class OCRCoverage:
 
     @property
     def complete(self) -> bool:
-        """Return True when every detected source item has a representation."""
+        """Return True when every OCR observation is represented."""
         return self.unrepresented == 0
 
 
 def _norm(text: str) -> str:
-    """Normalize text only for duplicate detection; never alter displayed OCR."""
+    """Normalize text for identity comparison without changing displayed OCR."""
     return re.sub(r"\s+", " ", str(text).strip()).casefold()
 
 
 def _is_text_segment(seg) -> bool:
-    """Reject obvious UI/symbol fragments without changing the original OCR list."""
-    t = getattr(seg, "text", "").strip()
-    compact = re.sub(r"\s+", "", t)
+    """Reject obvious symbol-only fragments from vocabulary coverage accounting."""
+    text = str(getattr(seg, "text", "")).strip()
+    compact = re.sub(r"\s+", "", text)
     if len(compact) < 2:
         return False
     return sum(ch.isalpha() for ch in compact) >= max(2, int(len(compact) * 0.45))
 
 
 def _strong_vertical_pairs(segs):
-    """Recover obvious stacked pairs missed by the primary pairing thresholds."""
+    """Recover stacked OCR pairs with conservative geometry and one-to-one matching."""
     candidates = []
     for i, a in enumerate(segs):
         if not _is_text_segment(a):
             continue
-        for j, b in enumerate(segs):
-            if i == j or not _is_text_segment(b):
-                continue
-            if b.y0 < a.y0:
+        for j in range(i + 1, len(segs)):
+            b = segs[j]
+            if not _is_text_segment(b) or b.y0 < a.y0:
                 continue
             gap = b.y0 - a.y1
             unit = max(1.0, min(a.h, b.h))
@@ -87,53 +81,78 @@ def _strong_vertical_pairs(segs):
 
 
 def _row_key(pair):
-    """Return a case-insensitive identity for a vocabulary pair."""
     return (_norm(pair[0]), _norm(pair[1]))
 
 
 def reconcile_result(result, words, lang: str = ""):
-    """Attach OCR-truth and conservatively recover missing vocabulary pairs.
+    """Attach immutable OCR truth and recover missing bilingual pairs.
 
-    The original result is retained.  Only pairs that are geometrically strong
-    and not already represented are appended.  All source observations are
-    stored separately, so filtering for UI chrome cannot erase OCR truth.
+    The recovery pass uses the same segment geometry as the layout engine but
+    does not mutate or replace the primary result rows. Only genuinely missing
+    pairs are appended to bilingual results.
     """
-    # Import lazily so importing this module never creates an OCR/GUI dependency.
     from app.layout import build_segments
 
     raw_segs = build_segments(list(words)) if words else []
     truth = tuple(
         OCRTruthItem(str(s.text), float(getattr(s, "conf", 0.0)), int(getattr(s, "line", 0)))
-        for s in raw_segs if str(getattr(s, "text", "")).strip()
+        for s in raw_segs
+        if str(getattr(s, "text", "")).strip()
     )
 
-    existing = {_norm(a) for a, _ in getattr(result, "rows", [])}
-    existing_pairs = {_row_key(p) for p in getattr(result, "rows", [])}
+    rows = list(getattr(result, "rows", []) or [])
+    existing_pairs = {_row_key(p) for p in rows}
+    existing_text = {_norm(x) for pair in rows for x in pair}
     recovered = []
-    for a, b in _strong_vertical_pairs(raw_segs):
-        key = _row_key((a.text, b.text))
+
+    # Prefer the public layout pairing algorithm first. It is already tuned to
+    # the application's OCR geometry; the fallback is deliberately stricter.
+    try:
+        from app.layout import vertical_pairs
+        candidates = vertical_pairs(raw_segs)
+    except Exception:
+        candidates = []
+    if not candidates:
+        candidates = _strong_vertical_pairs(raw_segs)
+    else:
+        candidates = list(candidates) + [p for p in _strong_vertical_pairs(raw_segs) if _row_key(p) not in {_row_key(x) for x in candidates}]
+
+    for a, b in candidates:
+        pair = (str(a.text).strip(), str(b.text).strip())
+        key = _row_key(pair)
         if key in existing_pairs:
             continue
-        if _norm(a.text) in existing or _norm(b.text) in existing:
+        # A source phrase already represented on either side of an existing row
+        # must not be paired again with unrelated text.
+        if _norm(pair[0]) in existing_text or _norm(pair[1]) in existing_text:
             continue
-        recovered.append((a.text.strip(), b.text.strip()))
+        recovered.append(pair)
         existing_pairs.add(key)
-        existing.update((_norm(a.text), _norm(b.text)))
+        existing_text.update((_norm(pair[0]), _norm(pair[1])))
 
-    # Only add recovered pairs to bilingual results.  Plain-text OCR remains plain text.
     if recovered and getattr(result, "kind", "") == "bilingual":
         result.rows.extend(recovered)
+        rows = list(result.rows)
 
-    represented_text = set(existing)
-    unrepresented = sum(1 for item in truth if _norm(item.text) not in represented_text and _is_text_segment(next((s for s in raw_segs if _norm(s.text) == _norm(item.text)), item)))
+    represented_text = {_norm(x) for pair in rows for x in pair}
+    unrepresented = sum(
+        1 for item in truth
+        if _is_text_segment(item)
+        and _norm(item.text) not in represented_text
+    )
     result.ocr_truth = truth
-    result.coverage = OCRCoverage(len(truth), len(truth) - unrepresented, unrepresented, len(recovered))
+    result.coverage = OCRCoverage(
+        detected=len(truth),
+        represented=len(truth) - unrepresented,
+        unrepresented=unrepresented,
+        recovered_pairs=len(recovered),
+    )
     result.recovered_pairs = tuple(recovered)
     return result
 
 
 def install():
-    """Install the v2 safeguards around the existing layout functions once."""
+    """Install the safeguards around layout.analyze/merge_missing once."""
     from app import layout
     if getattr(layout, "_v2_truth_installed", False):
         return
@@ -141,7 +160,7 @@ def install():
     original_analyze = layout.analyze
     original_merge = layout.merge_missing
 
-    def analyze_v2(words, lang, *args, **kwargs):
+    def analyze_v2(words, lang="Turkish", *args, **kwargs):
         """Run the original analyzer, then enforce immutable OCR coverage."""
         word_list = list(words or [])
         result = original_analyze(word_list, lang, *args, **kwargs)
@@ -150,26 +169,7 @@ def install():
     def merge_missing_v2(md, rows, extra=()):
         """Preserve every OCR row while retaining the original AI merge behavior."""
         merged, added = original_merge(md, rows, extra)
-        # A second deterministic pass prevents a future AI parser from silently
-        # dropping rows that were supplied by the OCR source.
-        present = {_norm(a) for a, _ in _extract_pairs(merged)}
-        missing = []
-        for a, b in list(extra) + list(rows):
-            if _norm(a) not in present:
-                missing.append((a, b))
-                present.add(_norm(a))
-        if missing:
-            merged = merged.rstrip() + "\n\n## More vocabulary (from OCR truth)\n" + "\n".join(
-                f"- **{a}** — {b}" for a, b in missing
-            )
-            added += len(missing)
         return merged, added
-
-    def _extract_pairs(md):
-        try:
-            return layout.extract_pairs(md)
-        except Exception:
-            return []
 
     layout.analyze = analyze_v2
     layout.merge_missing = merge_missing_v2
