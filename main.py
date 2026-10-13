@@ -19,6 +19,7 @@ from app.batch_runtime import install as install_unlimited_batch  # noqa: E402
 from app.complete_ocr import install as install_complete_ocr  # noqa: E402
 from app.v2_truth import install as install_ocr_truth  # noqa: E402
 from app.languages import install as install_languages  # noqa: E402
+from app.ocr_recovery import install as install_ocr_recovery  # noqa: E402
 from app.workspace_ui import install as install_study_workspace, StudyWorkspaceWindow  # noqa: E402
 from app.menu_bar import install as install_menu_bar  # noqa: E402
 
@@ -27,6 +28,7 @@ from app.menu_bar import install as install_menu_bar  # noqa: E402
 install_languages()
 install_unlimited_batch(App)
 install_ocr_truth()
+install_ocr_recovery(App)
 
 
 def main():
