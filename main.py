@@ -15,12 +15,14 @@ except Exception:
     pass
 
 from app.ui import App  # noqa: E402  (imported after the DPI call on purpose)
+from app.complete_ocr import install as install_complete_ocr  # noqa: E402
 from app.workspace_ui import install as install_study_workspace  # noqa: E402
 
 
 def main():
-    """Create the main window, install additive study tools and start Tk."""
+    """Create the main window, install additive OCR/study tools and start Tk."""
     app = App()
+    install_complete_ocr(app)
     install_study_workspace(app)
     app.mainloop()
 
