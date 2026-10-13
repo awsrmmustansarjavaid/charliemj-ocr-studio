@@ -33,6 +33,7 @@ v1.2 additions
 """
 from __future__ import annotations
 
+import difflib
 import re
 import statistics
 from dataclasses import dataclass, field
@@ -70,6 +71,8 @@ class Seg:
     h: float          # typical text height (median of its words)
     conf: float       # mean confidence
     line: int = 0     # index of the text line it came from
+    words: list = field(default_factory=list)   # the Word objects it was built from
+    padx: float = 0.0  # extra room (px) the second reading may use left/right of the box
 
     @property
     def w(self) -> float:
@@ -92,6 +95,9 @@ class Result:
     raw: str = ""                       # plain reading-order text
     confidence: float = 0.0             # mean word confidence
     method: str = ""                    # "vertical" | "horizontal" | ""
+    unread: int = 0                     # grid positions that exist but could not be read
+    grid: tuple = None                  # (rows, columns) of a detected card grid
+    low: int = 0                        # cells whose reading is doubtful (low confidence)
 
 
 # ------------------------------------------------------------------- 1. segments
@@ -132,7 +138,7 @@ def build_segments(words, gap_factor: float = 1.1):
 def _make_seg(ws, line):
     return Seg(" ".join(w.text for w in ws), min(w.x0 for w in ws), min(w.y0 for w in ws),
                max(w.x1 for w in ws), max(w.y1 for w in ws),
-               statistics.median(w.h for w in ws), statistics.fmean(w.conf for w in ws), line)
+               statistics.median(w.h for w in ws), statistics.fmean(w.conf for w in ws), line, list(ws))
 
 
 # ------------------------------------------------------------------- 2. noise
@@ -253,6 +259,82 @@ def _orient(pairs, lang):
     return out
 
 
+# ------------------------------------------------------------------- 4b. card grid detection
+def _centres(segs):
+    """Find the columns of a card grid: returns (centre x of every column, column pitch) or None.
+
+    The pitch is the usual distance between neighbouring short labels that sit on the SAME text line
+    (the cards of one row). The lattice origin is the position that the most labels agree with, so stray
+    text (usernames, icons) cannot break it. The lattice is then extended over the whole picture, which
+    also covers columns that were seen only once or not at all.
+    """
+    rel = [s for s in segs if len(s.words) <= 3 and len(s.text.replace(" ", "")) >= 3]
+    if len(rel) < 4:
+        return None
+    mw = statistics.median(s.w for s in rel)
+    rows = {}
+    for s in rel:
+        rows.setdefault(s.line, []).append((s.x0 + s.x1) / 2)
+    diffs = []
+    for cs in rows.values():
+        cs.sort()
+        diffs += [b - a for a, b in zip(cs, cs[1:]) if b - a >= 0.8 * mw]
+    if len(diffs) < 2:
+        return None
+    first = min(diffs)
+    pitch = statistics.median([d for d in diffs if d <= 1.15 * first])
+    xs = [(s.x0 + s.x1) / 2 for s in rel]
+
+    def fits(c):
+        return sum(abs((x - c) / pitch - round((x - c) / pitch)) < 0.12 for x in xs)
+    origin = max(xs, key=fits)
+    if fits(origin) < 4:
+        return None                                         # not a regular grid
+    lo, hi = min(s.x0 for s in segs), max(s.x1 for s in segs)
+    c = origin
+    while c - pitch >= lo - 0.2 * pitch:
+        c -= pitch
+    out = []
+    while c <= hi + 0.2 * pitch:
+        out.append(c)
+        c += pitch
+    return out, pitch
+
+
+def _split_merged(segs, grid):
+    """Split text that runs across two cards of the grid.
+
+    Long labels can almost touch their neighbours, so the first pass joins "parmaksiz eldiven" and
+    "isiya dayanikli eldiven" into ONE wide text. Where two neighbouring words belong to different grid
+    columns AND have a visible gap, the text is cut - the cards become separate again.
+    """
+    if not grid:
+        return segs
+    centres, pitch = grid
+    origin, out = centres[0], []
+    for s in segs:
+        if len(s.words) < 2:
+            out.append(s)
+            continue
+        ws = sorted(s.words, key=lambda w: w.x0)
+        h = statistics.median(w.h for w in ws)
+        groups, prev = [[ws[0]]], ws[0]
+        for w in ws[1:]:
+            col = lambda x: round(((x.x0 + x.x1) / 2 - origin) / pitch)
+            if col(w) != col(prev) and w.x0 - prev.x1 >= 0.5 * h:
+                groups.append([])
+            groups[-1].append(w)
+            prev = w
+        if len(groups) == 1:
+            out.append(s)
+            continue
+        for g in groups:
+            part = _make_seg(g, s.line)
+            part.text = clean_text(part.text)
+            out.append(part)
+    return out
+
+
 # ------------------------------------------------------------------- 5. grid helpers
 def _pw(p):
     """Width of a pair (both texts together)."""
@@ -334,68 +416,178 @@ def _good_line(t, conf):
     return len(c) >= 2 and conf >= 50 and sum(ch.isalpha() for ch in c) / len(c) >= 0.6
 
 
-def _fill(bands, read_cell, lang, unit):
-    """Recover table cells that the first OCR pass missed.
+def _columns(allp, mw, width):
+    """Column centres of a card grid -> (centres, pitch). Empty list when there is no multi-column grid.
 
-    The grid is inferred from the cells that WERE found: their column centres and row
-    spacing. For every empty (row, column) position - including whole rows that are
-    missing between two found rows - the label area is cropped and read again with
-    read_cell(box) -> [(text, confidence), ...].
+    Strong columns (>= 2 cells found) give a first pitch; then ALL found columns are assigned to lattice
+    positions (c = origin + k x pitch) and a weighted least-squares fit gives origin and pitch - a single
+    mis-read cell can no longer shift the far columns. A column in which NOTHING was found is added when
+    it lies next to a known column and inside the picture.
+    """
+    clusters = _cluster([_pc(p) for p in allp], 0.5 * mw)
+    strong = [c for c, n in clusters if n >= 2]
+    if len(strong) < 2:
+        return [], 0
+    diffs = [b - a for a, b in zip(strong, strong[1:])]
+    pitch = statistics.median([d for d in diffs if d <= 1.25 * min(diffs)])
+    pts = []                                                       # (k, centre, weight)
+    for c, n in clusters:
+        k = round((c - strong[0]) / pitch)
+        if abs((c - strong[0]) / pitch - k) < 0.3:
+            pts.append((k, c, n))
+    wk = sum(n for _, _, n in pts)
+    kbar, cbar = sum(k * n for k, _, n in pts) / wk, sum(c * n for _, c, n in pts) / wk
+    var = sum(n * (k - kbar) ** 2 for k, _, n in pts)
+    if var > 0:
+        pitch = sum(n * (k - kbar) * (c - cbar) for k, c, n in pts) / var
+    origin = cbar - pitch * kbar
+    cols = []
+    for k in range(-8, 9):
+        c = origin + k * pitch
+        known = any(abs(c - cc) <= 0.35 * pitch for cc, _ in clusters)
+        beside = any(abs(c - cc) <= 1.1 * pitch for cc, _ in clusters)
+        inside = width is None or 0.45 * pitch <= c <= width - 0.45 * pitch
+        if known or (beside and inside):
+            cols.append(c)
+    return cols, pitch
+
+
+def _better(old, text, conf):
+    """Is the re-read `text` better than the segment `old`?  Returns the cleaned text or None.
+
+    Accepted: a longer text that contains the old one (a truncated label is completed), a very similar
+    text with at least the same confidence, or a clearly more confident reading of a similar word.
+    """
+    new = clean_text(text)
+    o, n = old.text.lower(), new.lower()
+    if not n or n == o or conf < 50:
+        return None
+    if o in n and len(n) > len(o):
+        return new
+    ratio = difflib.SequenceMatcher(None, o, n).ratio()
+    if (ratio >= 0.55 and conf >= old.conf - 3) or (ratio >= 0.4 and conf > old.conf + 12):
+        return new
+    return None
+
+
+def _pick_lines(lines):
+    """From the lines read in one cell choose the two best neighbouring lines (label + translation)."""
+    good = [(x, cf) for x, cf in lines if _good_line(x, cf)]
+    if len(good) <= 2:
+        return good
+    best = max(range(len(good) - 1), key=lambda k: good[k][1] + good[k + 1][1] + 0.1 * k)   # ties: lower = nearer the text
+    return good[best:best + 2]
+
+
+def _lattice(bands, read_cell, lang, unit, size=None, y_min=0.0, deep=False):
+    """Complete and verify a card grid: returns (bands, boxes_that_were_read, unread_count).
+
+    The grid is inferred from the cells that WERE found (column centres, row spacing). Then every
+    position is read again with read_cell(box) -> [(text, conf), ...]:
+      * an EMPTY position (also a whole missing column, or a missing row between / above / below the
+        found rows) gets a new pair when two text lines are read;
+      * an existing pair gets its text REPLACED by the clean single-cell reading.
+    A missing row ABOVE or BELOW the table is accepted only if at least half of its columns read as
+    label + translation, so phone-interface text (user names, captions) is never taken for a row.
+    y_min: top limit for rows above the table (the bottom of the heading, if there is one).
     """
     allp = [p for b in bands for p in b]
     mw = statistics.median(_pw(p) for p in allp)
-    cols = [c for c, n in _cluster([_pc(p) for p in allp], 0.5 * mw) if n >= max(2, 0.4 * len(bands))]
+    cols, pitch = _columns(allp, mw, size[0] if size else None)
     if len(cols) < 2:
-        return bands, []
+        return bands, [], 0, None
+    top_is_orig = sum(a.cy < b.cy for a, b in allp) >= len(allp) / 2
     tops = [statistics.median(min(a.y0, b.y0) for a, b in bd) for bd in bands]
     bots = [statistics.median(max(a.y1, b.y1) for a, b in bd) for bd in bands]
     height = statistics.median(b - t for t, b in zip(tops, bots))
     rows = list(zip(tops, bots, bands))
-    diffs = [b - a for a, b in zip(tops, tops[1:])]
-    if diffs:
-        pitch = statistics.median(diffs)
+    step = statistics.median(b - a for a, b in zip(tops, tops[1:])) if len(tops) >= 2 else None
+    if step:                                                     # missing rows BETWEEN found rows
         out = []
         for k, (t, b, band) in enumerate(rows):
             out.append((t, b, band))
-            if k + 1 < len(rows):
-                miss = round((tops[k + 1] - t) / pitch) - 1
-                if miss >= 1 and tops[k + 1] - t > 1.7 * pitch:
-                    out += [(t + pitch * m, t + pitch * m + height, []) for m in range(1, miss + 1)]
+            if k + 1 < len(rows) and tops[k + 1] - t > 1.7 * step:
+                miss = round((tops[k + 1] - t) / step) - 1
+                out += [(t + step * m, t + step * m + height, []) for m in range(1, miss + 1)]
         rows = out
-    top_is_orig = sum(a.cy < b.cy for a, b in allp) >= len(allp) / 2
-    result, boxes = [], []
+    boxes, unread = [], 0
+
+    def read_new(c, t, b):
+        """Read the cell at column c, row t..b -> (top seg, bottom seg, box) or None."""
+        box = (c - 0.5 * pitch, t - 0.3 * unit, c + 0.5 * pitch, b + 0.3 * unit)
+        lines = _pick_lines(read_cell(box))
+        if len(lines) < 2:
+            return None
+        if deep:                                                   # Deep OCR: vote with single-language readings
+            oi = 0 if top_is_orig else 1
+            for role, idx in (("orig", oi), ("trans", 1 - oi)):
+                alt = _pick_lines(read_cell(box, True, role))
+                if len(alt) == 2 and difflib.SequenceMatcher(None, lines[idx][0].lower(), alt[idx][0].lower()).ratio() >= 0.7 \
+                        and alt[idx][1] >= lines[idx][1] - 8:
+                    lines[idx] = alt[idx]
+        (t1, c1), (t2, c2) = lines
+        mid = (t + b) / 2
+        return (Seg(clean_text(t1), box[0], t, box[2], mid, unit, c1, -1),
+                Seg(clean_text(t2), box[0], mid, box[2], b, unit, c2, -1), box)
+
+    result = []
     for t, b, band in rows:
         band = list(band)
         for c in cols:
-            if any(abs(_pc(p) - c) <= 0.5 * mw for p in band):
+            mine = [p for p in band if abs(_pc(p) - c) <= 0.45 * pitch]
+            if mine:
+                # the clean single-cell reading REPLACES the global one: the global pass can cut words short
+                # or glue neighbours together, the cell pass cannot
+                got = read_new(c, t, b)
+                if got:
+                    top, bot = sorted(mine[0], key=lambda s: s.y0)
+                    top.text, top.conf, bot.text, bot.conf = got[0].text, got[0].conf, got[1].text, got[1].conf
                 continue
-            box = (c - 0.55 * mw, t - 0.3 * unit, c + 0.55 * mw, b + 0.3 * unit)
-            lines = [(x, cf) for x, cf in read_cell(box) if _good_line(x, cf)]
-            if len(lines) < 2:
+            got = read_new(c, t, b)
+            if got is None:
+                unread += 1
                 continue
-            (t1, c1), (t2, c2) = lines[0], lines[1]
-            mid = (t + b) / 2
-            s1 = Seg(clean_text(t1), c - 0.5 * mw, t, c + 0.5 * mw, mid, unit, c1, -1)
-            s2 = Seg(clean_text(t2), c - 0.5 * mw, mid, c + 0.5 * mw, b, unit, c2, -1)
-            sc = target_score(s1.text, lang) - target_score(s2.text, lang)
-            first_orig = (sc > 0) if sc else top_is_orig
-            band.append((s1, s2) if first_orig else (s2, s1))
-            boxes.append(box)
+            band.append((got[0], got[1]))
+            boxes.append(got[2])
         if band:
             result.append(sorted(band, key=lambda p: min(p[0].x0, p[1].x0)))
-    return result, boxes
+    if step:                                                     # missing rows ABOVE / BELOW the table
+        need = max(2, (len(cols) + 1) // 2)
+        for direction in (-1, 1):
+            for k in range(1, 4):
+                t = (tops[0] if direction < 0 else tops[-1]) + direction * k * step
+                b = t + height
+                if (direction < 0 and t < y_min - 0.1 * height) or (direction > 0 and size and b > size[1] - 0.5 * height):
+                    break
+                got = [g for g in (read_new(c, t, b) for c in cols) if g]
+                if len(got) < need:
+                    break
+                band = sorted([(g[0], g[1]) for g in got], key=lambda p: min(p[0].x0, p[1].x0))
+                boxes += [g[2] for g in got]
+                result.insert(0, band) if direction < 0 else result.append(band)
+    # orientation of EVERY cell is decided again with the final texts (majority vote, as in the first pass)
+    flat = [(sorted(p, key=lambda s: s.y0)[0], sorted(p, key=lambda s: s.y0)[1]) for bd in result for p in bd]
+    oriented = iter(_orient(flat, lang))
+    result = [[next(oriented) for _ in bd] for bd in result]
+    return result, boxes, unread, (len(result), len(cols))
 
 
 # ------------------------------------------------------------------- 6. analyze
-def analyze(words, lang: str = "Turkish", min_conf: float = 45.0, refine=None, read_cell=None) -> Result:
+def analyze(words, lang: str = "Turkish", min_conf: float = 45.0, refine=None, read_cell=None,
+            min_pairs: int = 3, size=None, deep: bool = False) -> Result:
     """Main entry: OCR words -> Result (title, table rows, leftovers, clean text).
 
-    refine:    optional refine(seg, role) -> str, role "orig" / "trans". Re-reads one cell
-               with the right single-language model (better for ş ı ğ ç).
-    read_cell: optional read_cell(box) -> [(text, conf)]. Re-reads a missing grid cell.
+    refine:    optional refine(seg, role) -> str, role "orig" / "trans". Re-reads one text with the
+               right single-language model (better for the letters ş ı ğ ç).
+    read_cell: optional read_cell(box) -> [(text, conf)]. Re-reads a whole grid cell: it fills cells the
+               first pass missed (even a whole missing column / row) and upgrades doubtful ones.
+    min_pairs: how many label/translation pairs make a table (3 for a whole picture, 1 for a selected area).
+    size:      (width, height) of the OCR image - lets the grid be extended to the picture edges.
+    deep:      Deep OCR - every grid cell is also read with single-language models and the readings vote.
     """
     res = Result()
-    all_segs = build_segments(list(words))
+    words = [w for w in words if w.text.strip()]
+    all_segs = build_segments(words)
     if not all_segs:
         return res
     res.confidence = round(statistics.fmean(s.conf for s in all_segs), 1)
@@ -403,13 +595,14 @@ def analyze(words, lang: str = "Turkish", min_conf: float = 45.0, refine=None, r
     segs = drop_noise(all_segs, min_conf)
     if not segs:
         return res
+    segs = _split_merged(segs, _centres(segs))              # cards whose labels touch their neighbours
     unit = statistics.median(s.h for s in segs)
 
     vp, hp = vertical_pairs(segs), horizontal_pairs(segs)
     pairs, res.method = (vp, "vertical") if len(vp) >= len(hp) else (hp, "horizontal")
     pairs = _consistent(pairs)
 
-    if len(pairs) >= 3 and 2 * len(pairs) >= 0.5 * len(segs):
+    if len(pairs) >= min_pairs and 2 * len(pairs) >= 0.5 * len(segs):
         res.kind = "bilingual"
         pairs = _orient(pairs, lang)
         used = {id(s) for p in pairs for s in p}
@@ -418,7 +611,7 @@ def analyze(words, lang: str = "Turkish", min_conf: float = 45.0, refine=None, r
         if head:
             res.title, res.subtitle = head[0].text, head[1].text
             used.update(id(s) for s in head)
-        if refine:                                       # second, language-specific reading of each cell
+        if refine:                                           # second, language-specific reading of each text
             for a, b in (p for band in bands for p in band):
                 for seg, role in ((a, "orig"), (b, "trans")):
                     try:
@@ -426,14 +619,28 @@ def analyze(words, lang: str = "Turkish", min_conf: float = 45.0, refine=None, r
                     except Exception:
                         pass
         boxes = []
-        if read_cell:
+        if read_cell and res.method == "vertical" and len(bands) >= 2:
             try:
-                bands, boxes = _fill(bands, read_cell, lang, unit)
+                bands, boxes, res.unread, res.grid = _lattice(bands, read_cell, lang, unit, size, max((x.y1 for x in head), default=0.0) if head else 0.0, deep)
+            except Exception:
+                pass
+        if head and read_cell:                               # re-read title + subtitle as one clean block
+            try:
+                bx = (min(s.x0 for s in head) - 4, min(s.y0 for s in head) - 0.3 * head[0].h,
+                      max(s.x1 for s in head) + 4, max(s.y1 for s in head) + 0.3 * head[0].h)
+                got = _pick_lines(read_cell(bx, False))
+                if len(got) == 2 and all(len(clean_text(t)) >= 0.8 * len(o) for (t, _), o in zip(got, (res.title, res.subtitle))):
+                    res.title, res.subtitle = clean_text(got[0][0]), clean_text(got[1][0])
             except Exception:
                 pass
         res.rows = [(a.text, b.text) for band in bands for a, b in band]
+        if res.rows:
+            c1, c2 = _unify_case([r[0] for r in res.rows]), _unify_case([r[1] for r in res.rows])
+            res.rows = list(zip(c1, c2))
+        res.low = sum(1 for band in bands for a, b in band if (a.conf + b.conf) / 2 < 70)
+
         def in_box(s):
-            return any(b[0] <= (s.x0 + s.x1) / 2 <= b[2] and b[1] <= s.cy <= b[3] for b in boxes)
+            return any(bx[0] <= (s.x0 + s.x1) / 2 <= bx[2] and bx[1] <= s.cy <= bx[3] for bx in boxes)
         left = [s for s in sorted(segs, key=lambda s: (s.cy, s.x0)) if id(s) not in used and not in_box(s)]
         top = rows_top([p for band in bands for p in band])
         if not res.title and top is not None:
@@ -505,18 +712,28 @@ def to_markdown(res: Result, orig_name: str = "Turkish", trans_name: str = "Engl
     out.append(f"|{'-' * 4}|{'-' * (w1 + 2)}|{'-' * (w2 + 2)}|")
     for i, (a, b) in enumerate(rows, 1):
         out.append(f"| {i:>2} | {a:<{w1}} | {b:<{w2}} |")
+    if res.unread:
+        out += ["", f"⚠ {res.unread} grid cell(s) could not be read - select that spot with ✂ Select Area."]
     if res.other:
         out += ["", "**Other text:** " + " · ".join(res.other)]
     return "\n".join(out)
 
 
 def status_line(res: Result, orig_name: str, trans_name: str) -> str:
-    """One-line summary shown in the status bar after OCR."""
+    """One-line summary shown in the status bar after OCR, including the coverage check."""
     if res.kind == "bilingual":
-        return f"Bilingual table · {orig_name} → {trans_name} · {len(res.rows)} pairs · confidence {res.confidence:.0f}%"
+        grid = f" ({res.grid[0]}×{res.grid[1]} grid)" if res.grid else ""
+        warn = (f" · ⚠ {res.unread} cell(s) unreadable" if res.unread else "") + (f" · ⚠ {res.low} doubtful" if res.low else "")
+        return (f"Bilingual table · {orig_name} → {trans_name} · {len(res.rows)} pairs{grid} · confidence {res.confidence:.0f}%"
+                + warn + (" – try Deep OCR" if warn else " · all cells read"))
     if res.kind == "text":
         return f"Clean text · {len(res.lines)} lines · confidence {res.confidence:.0f}%"
     return "No text found"
+
+
+def score(res: Result):
+    """How complete a Smart result is (higher is better) - used to choose between two OCR passes."""
+    return (len(res.rows) - res.unread, -res.low, res.confidence)
 
 
 # ------------------------------------------------------------------- 7. pair extraction (for CSV)
@@ -577,15 +794,17 @@ def text_notes(md: str, heading: str) -> str:
     return "\n".join([f"## {heading}", *body]) if body else ""
 
 
-def to_notes(res: Result, md: str) -> str:
+def to_notes(res: Result, md: str, title_vocab: bool = True, vocab_heading: bool = True) -> str:
     """Study-notes Markdown for the text editor (headings + bullets by default).
 
         # Main title            <- big heading found in the picture
         ### Subtitle
         ## Vocabulary
+        - **title** — subtitle  <- the heading phrase is vocabulary too (title_vocab)
         - **original** — translation
 
     Pairs are read back from `md` (the table the user sees and may have edited or swapped).
+    vocab_heading=False leaves out the '## Vocabulary' line (used for extra captured areas).
     """
     pairs = extract_pairs(md)
     if res is not None and res.kind == "bilingual" and pairs:
@@ -594,7 +813,35 @@ def to_notes(res: Result, md: str) -> str:
             out.append(f"# {res.title}")
         if res.subtitle:
             out.append(f"### {res.subtitle}")
-        out.append("## Vocabulary")
+        if vocab_heading:
+            out.append("## Vocabulary")
+        if title_vocab and res.title and res.subtitle:
+            out.append(f"- **{res.title}** — {res.subtitle}")
         out += [f"- **{a}** — {b}" for a, b in pairs]
         return "\n".join(out)
-    return text_notes(md, "Text")
+    return text_notes(md, "Text") if vocab_heading else "\n".join(x.strip() for x in md.splitlines() if x.strip())
+
+
+def merge_missing(md: str, rows, extra=()):
+    """Safety net for AI Smart: add the OCR pairs that the AI notes do not contain.
+
+    A pair counts as present when its first text is at least 80 % similar to a bullet of the AI notes
+    (the AI may have fixed a letter). Missing pairs are appended under '## More vocabulary (from OCR)'.
+    Returns (markdown, number of pairs added). The AI can improve the notes but never makes words vanish.
+    """
+    have = [a.lower() for a, _ in extract_pairs(md)]
+    miss = [(a, b) for a, b in list(extra) + list(rows)
+            if not any(difflib.SequenceMatcher(None, a.lower(), h).ratio() >= 0.8 for h in have)]
+    if not miss:
+        return md, 0
+    return md.rstrip() + "\n\n## More vocabulary (from OCR)\n" + "\n".join(f"- **{a}** — {b}" for a, b in miss), len(miss)
+
+
+def _unify_case(texts):
+    """If almost every text of a column starts lower-case, lower-case the odd 'Sports' -> 'sports'."""
+    low = sum(1 for t in texts if t[:1].islower())
+    if low < 0.7 * len(texts):
+        return texts
+    return [t[0].lower() + t[1:] if len(t) > 2 and t[0] in "ABCDEFGHJKLMNOPQRSTUVWXYZ" and t[1].islower() else t for t in texts]
+
+
