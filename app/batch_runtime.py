@@ -1,21 +1,18 @@
 """Reliable unlimited-queue OCR runtime patch.
 
 This module is intentionally additive: the existing four-panel UI, OCR engine,
-layout engine, editor and result cards remain intact.  It fixes one important
-batch-state bug: the old Process All command skipped records whose previous OCR
-status was already ``done``.  That meant an image previously processed as Raw
-was never re-run after switching to Smart or AI Smart.
-
-The runtime also removes the artificial image-count cap and adds explicit
-all-image buttons for Smart, Raw and local Ollama AI processing.
+layout engine, editor and result cards remain intact. It fixes the batch-state
+bug where Process All skipped images that already had a ``done`` result.
 """
 from __future__ import annotations
 
 import threading
+import tkinter as tk
 
 import customtkinter as ctk
 
 from .config import cfg
+from . import local_agents
 
 
 def batch_plan(items, mode):
@@ -81,9 +78,9 @@ def _process_all_everything(self, mode=None):
             except Exception as exc:
                 failures += 1
                 message = str(exc) or exc.__class__.__name__
-                self.post(lambda item=item, message=message: (
+                self.post(lambda item=item, message=message, number=number: (
                     self.set_status(item, "error"),
-                    self.status(f"⚠ Image {todo.index(item) + 1}: {message[:180]}")
+                    self.status(f"⚠ Image {number}: {message[:180]}")
                 ))
                 continue
 
@@ -115,6 +112,51 @@ def _ocr_current_force(self):
     self.run_ocr(self.items[self.current], self.mode.get())
 
 
+def _open_agents(self):
+    """Show the local Ollama agent panel without introducing a cloud dependency."""
+    app = self
+    win = ctk.CTkToplevel(app)
+    win.title("Local AI Agents — Ollama")
+    win.geometry("760x560")
+    win.minsize(620, 440)
+
+    top = ctk.CTkFrame(win); top.pack(fill="x", padx=10, pady=10)
+    ctk.CTkLabel(top, text="LOCAL AI AGENTS", font=("Segoe UI", 15, "bold")).pack(side="left")
+    ctk.CTkLabel(top, text=f"Ollama: {cfg['ollama_url']}  •  Model: {cfg['model']}", text_color="gray").pack(side="right")
+
+    source = ctk.CTkTextbox(win, height=120, font=("Consolas", 11)); source.pack(fill="x", padx=10, pady=5)
+    if getattr(app, "current", None) is not None and app.items:
+        current = app.items[app.current]
+        source.insert("1.0", current.get("raw") or current.get("md") or "")
+    else:
+        source.insert("1.0", app.combined_text() if app.items else "")
+
+    output = ctk.CTkTextbox(win, font=("Segoe UI", 12)); output.pack(fill="both", expand=True, padx=10, pady=5)
+    status = ctk.CTkLabel(win, text="Choose an agent. All requests stay on localhost.", anchor="w")
+    status.pack(fill="x", padx=10, pady=4)
+
+    buttons = ctk.CTkFrame(win); buttons.pack(fill="x", padx=10, pady=8)
+    for agent_name in local_agents.names():
+        def run_agent(name=agent_name):
+            text = source.get("1.0", "end").strip()
+            image = None
+            if getattr(app, "current", None) is not None and app.items:
+                image = app.items[app.current].get("img")
+            if not text and image is None:
+                status.configure(text="Add/process an image first")
+                return
+            status.configure(text=f"🤖 {name} running locally…")
+            def done(result):
+                output.delete("1.0", "end")
+                output.insert("1.0", result)
+                status.configure(text=f"✓ {name} complete")
+            def fail(message):
+                status.configure(text=f"⚠ {message[:220]}")
+            app.bg(lambda: local_agents.run(name, text, image), done, fail)
+        ctk.CTkButton(buttons, text=agent_name, command=run_agent).pack(side="left", padx=3)
+    ctk.CTkButton(buttons, text="Close", command=win.destroy).pack(side="right", padx=3)
+
+
 def _add_batch_controls(self, parent):
     """Add explicit controls so users never have to infer how to process all images."""
     ctk.CTkButton(
@@ -125,6 +167,11 @@ def _add_batch_controls(self, parent):
         parent, text="🤖 AI Smart All (Ollama)", height=34,
         fg_color="#6b46c1", hover_color="#805ad5",
         command=lambda: self.process_all("AI Smart")
+    ).pack(fill="x", padx=10, pady=3)
+    ctk.CTkButton(
+        parent, text="🧠 Local AI Agents", height=34,
+        fg_color="#4b2e83", hover_color="#6341a1",
+        command=self._open_agents
     ).pack(fill="x", padx=10, pady=3)
 
 
@@ -140,6 +187,7 @@ def _build_preview_unlimited(self, parent):
     ctk.CTkButton(row, text="Scan All", command=lambda: self.process_all("Smart")).pack(side="left", expand=True, fill="x", padx=2)
     ctk.CTkButton(row, text="AI All", fg_color="#6b46c1", hover_color="#805ad5",
                   command=lambda: self.process_all("AI Smart")).pack(side="left", expand=True, fill="x", padx=2)
+    ctk.CTkButton(parent, text="🧠 Agents", command=self._open_agents).pack(fill="x", padx=8, pady=(0, 8))
 
 
 def install(AppClass):
@@ -156,6 +204,7 @@ def install(AppClass):
     AppClass.refresh_all = _refresh_all_unlimited
     AppClass.process_all = _process_all_everything
     AppClass.ocr_current = _ocr_current_force
+    AppClass._open_agents = _open_agents
     AppClass.build_queue = _build_queue_unlimited
     AppClass.build_preview = _build_preview_unlimited
     AppClass._unlimited_batch_runtime = True
