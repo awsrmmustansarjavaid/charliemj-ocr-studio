@@ -27,15 +27,11 @@
   <a href="./downloads/charliemj-ocr-studio-v1.zip">
     <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20Download-Portable%20v1-blue?style=for-the-badge" alt="Download Portable v1">
   </a>
-
   &nbsp;
-
   <a href="./downloads/CharlieMJ-OCR-Portable-v2.3.0.zip">
     <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20Download-Portable%20v2.3.0-blue?style=for-the-badge" alt="Download Portable v2.3.0">
   </a>
-
   &nbsp;
-  
   <a href="https://github.com/awsrmmustansarjavaid/charliemj-ocr-studio/actions/runs/38412578017/artifacts/11823197425">
     <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20Download-GitHub%20Actions%20Artifact-green?style=for-the-badge" alt="Download Original Verified GitHub Actions Artifact">
   </a>
