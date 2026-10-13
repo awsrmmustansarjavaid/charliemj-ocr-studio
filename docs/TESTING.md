@@ -1,56 +1,54 @@
 # Testing
 
-[← Back to main README](../README.md) · Related: [Smart OCR](SMART_OCR.md) · [Architecture](ARCHITECTURE.md)
+[← Main README](../README.md) · Related: [Smart OCR](SMART_OCR.md) · [Architecture](ARCHITECTURE.md)
 
-The project has **three layers of tests**. All of them run on Windows (in the GitHub build) and on Linux.
+The project has unit, OCR-integration and UI/build regression coverage.
+
+## Run the complete Python suite
 
 ```bash
-pip install -r requirements.txt
-python -m unittest discover -s tests -v          # 26 unit + integration tests
-python tests/smoke_ui.py                         # end-to-end test of the real window (needs a display)
+pip install -r requirements-build.txt
+python -m unittest discover -s tests -v
 ```
 
-The GitHub workflow runs `python -m unittest tests.test_layout tests.test_richtext` (**blocking**: the build stops if one fails) and
-`python -m unittest tests.test_ocr_integration` (**informational**: a font or Tesseract difference on the runner must not block the
-`.exe`). The test files add their own folder to the import path, so every way of starting them works.
+The suite covers layout/structure logic, rich-text conversion/export, queue/job integration, local-agent diagnostics, OCR recovery and Python syntax compilation.
 
-## 1. Unit tests (no GUI, no OCR)
+## Important regression coverage
 
-| File | What it checks |
-|------|----------------|
-| `tests/test_layout.py` | segments, noise filter, card grids, two-column tables, orientation (Urdu script), empty input, Markdown round trip, **grid completion** (a missing row *and* column are recovered), phone-interface text is never taken for a row, **title counted as vocabulary**, **AI safety net** (`merge_missing`) |
-| `tests/test_richtext.py` | Markdown → blocks, tables → bullets, Markdown / plain text / HTML export, vocabulary pairs for CSV, **DOCX is a valid zip with well-formed XML** |
+- **Complete-image OCR** does not cap extraction from a vocabulary reference count.
+- **Dense screenshot recovery** can retry a text-classified image and accept only a genuine structured result.
+- **Lossless AI merge** restores OCR pairs that AI formatting omitted.
+- **Batch and per-image OCR** use the same job entry point.
+- **Already-completed images** can be reprocessed by the unified queue runtime.
+- **Local agent status** accepts an explicit endpoint for diagnostics.
+- Every `main.py` and `app/*.py` file is compiled by the syntax regression test.
 
-## 2. Integration tests (real Tesseract)
+## OCR integration
 
-`tests/test_ocr_integration.py` is skipped automatically when Tesseract is not installed. It generates test pictures
-(`tests/make_poster.py`, Pillow only) and runs the real OCR:
+`tests/test_ocr_integration.py` exercises real Tesseract when it is available. The GitHub workflow treats this integration check as informational while the complete regression suite is blocking.
 
-| Test | Picture | Expectation |
-|------|---------|-------------|
-| Poster, Smart | 3 × 5 photo grid, watermark, phone UI, caption | ≥ 11 of 12 pairs exact, no title from "Posts", caption is not a row |
-| Poster, Raw | same | every word of the poster is in the Raw text |
-| **Glove card, Smart** | 4 × 3 grid, labels almost touching, watermark, title + subtitle | **all 12 cells exact, title + subtitle exact, grid 3 × 4, 0 unread cells** |
-| **Glove card, notes** | same | **13 vocabulary bullets** (12 pictures + the title) |
-| Glove card, Raw | same | every word, with the right accents |
+## Packaged EXE smoke test
 
-## 3. End-to-end window test
+The Windows workflow starts `dist\CharlieMJ-OCR\CharlieMJ-OCR.exe` after PyInstaller finishes and requires the frozen process to remain alive through the startup grace period. This catches missing hidden imports and packaging-only failures.
 
-`tests/smoke_ui.py` starts the real application (headless with `xvfb-run` on Linux) with a fake local-AI server and walks through:
+## CI pipeline
 
-1. Smart **Process All** → results in the cards and the editor (*Image 1 → heading → bullets*, separators)
-2. **Raw** mode → complete text, *Raw text* heading in the editor
-3. **AI Smart** (fake model) → h1 / h2 / h3 + bullets; AI that forgets a word → the word is added back
-4. **Select Area → This image**: no new image, an *Area 1* record, *Area 1* under *Image 1* in the editor, no batch slot used
-5. **Select Area → New image** and removing an area
-6. reorder → *Image N* renumbers in cards and editor
-7. **Swap** columns · edit protection (your edits are not overwritten) · **⤺ Restore** · forced update
-8. exports: Markdown, TXT, HTML, DOCX, CSV · focus mode · AI status
-9. the **selector window** with simulated mouse: zoom, Fit, Fit width, 100 %, drag a box, **crop**, **rotate**, undo edit
+1. Install Tesseract.
+2. Prepare bundled language data.
+3. Install pinned dependencies.
+4. Run the complete unittest suite.
+5. Run OCR integration checks.
+6. Build the portable EXE.
+7. Start the frozen EXE as a smoke test.
+8. Run Microsoft Defender when available.
+9. Generate `SHA256SUMS.txt` and the final ZIP.
 
-## Manual checklist before a release
-1. Process 20 real flashcards in **Balanced**; compare the count of phrases with the pictures; re-run doubtful ones in **Deep**.
-2. Select Area on a tall screenshot: zoom, fit, pan, send a box to *This image*; check cards and editor.
-3. Delete and reorder images and watch the numbers.
-4. Export DOCX / HTML and open them; import the CSV in a spreadsheet.
-5. With Ollama stopped, run **AI Smart**: the Smart result must appear with a message.
+## Manual release checklist
+
+- Process a mixed set of screenshots in Smart Balanced mode.
+- Compare the result count with the complete visible screenshot, not an expected vocabulary count.
+- Re-run a difficult image individually and confirm it uses the same result path as Process All.
+- Try Raw and Deep on a difficult image.
+- Test Select Area and editor exports.
+- Test AI Smart with Ollama running and stopped.
+- Verify the packaged EXE starts on a clean Windows environment.

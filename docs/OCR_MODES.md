@@ -1,93 +1,58 @@
-# OCR Modes and the Select Area Tool
+# OCR Modes
 
-[← Back to main README](../README.md) · Previous: [Features](FEATURES.md) · Next: [Text Editor](EDITOR.md)
+[← Main README](../README.md) · Previous: [Features](FEATURES.md) · Next: [Text Editor](EDITOR.md)
 
-Panel 2 has a three-way switch. The chosen mode is used by **⚡ Process All**, **🔍 Extract Text**,
-**✂ Select Area** and is remembered between sessions. Each result card also has its own **↻ Raw / ↻ Smart / ↻ AI**
-buttons, so one image can be re-read in a different mode at any time.
+All OCR entry points use the same job manager. **Process All**, **Extract Text**, and each result-card **Smart / Raw / AI** button reach the same worker/result pipeline.
 
-| | **Smart** | **Raw** | **AI Smart** |
-|---|---|---|---|
-| Goal | clean *Original \| Translation* table | **all** text, exactly as found | title, headings, subheadings, bullet vocabulary |
-| Needs internet / AI | no (offline) | no (offline) | local AI (Ollama), still no cloud |
-| Speed | ~5 s per image | ~5 s per image | ~5 s + model time (10–120 s) |
-| Filters noise | yes (UI text, captions, watermarks) | **no** | yes |
-| Best for | vocabulary posters, flashcards, two-column lists | when you want every word, or Smart guessed wrong | polished notes with real headings |
-| Risk | a very unusual layout may need **⇄ Swap** | contains junk text too | the model can make mistakes – always check |
+| Mode | Purpose | AI required |
+|---|---|---|
+| **Smart** | Complete screenshot OCR → structure detection → bilingual tables, titles and recovered cells. | No |
+| **Raw** | Complete OCR text with no Smart layout filtering. | No |
+| **AI Smart** | Smart OCR + local AI notes with an OCR lossless safety net. | Optional Ollama |
 
-## Smart mode
-Reads the *layout*, not just the text. In short: word positions → text blocks → pairs (label above translation,
-or left | right) → table rows → heading → missing-cell recovery → Markdown table.
-Result for a poster with 12 pictures and a Turkish label + English label under each:
+## Smart OCR
 
-```
-| #  | Turkish          | English       |
-|----|------------------|---------------|
-|  1 | gamze            | dimple        |
-|  2 | çift çene        | double chin   |
-| …  | …                | …             |
-```
-Phone / social-media text (`Posts`, `20 hours ago`, usernames, captions) is kept out of the table; whatever is
-left goes into an **Other text** line under it. Full algorithm: [Smart OCR](SMART_OCR.md).
+1. OCR the whole image and keep word positions/confidence.
+2. Detect lines, blocks, pairs, headings and grid geometry.
+3. Re-read grid cells when the selected accuracy level calls for it.
+4. Recover missing cells/rows conservatively.
+5. Return a structured Markdown result plus coverage information.
 
-**⇄ Swap** flips the two columns if the original and the translation were detected the wrong way round.
+A dense screenshot that initially looks like plain text can receive one bounded 3× structural recovery pass in Balanced mode. The recovery is accepted only when it produces a real table-sized bilingual result.
 
-## Raw mode — the complete text
-Raw runs two Tesseract passes (sparse text + automatic page analysis) and keeps **every** word either pass finds.
-Text blocks that sit side by side stay on one line, separated by four spaces, so the picture's layout is still visible:
+The OCR pass is **not capped by the number of vocabulary items expected by a user or by the AI output**. Extraction happens first; structure and deduplication happen afterwards.
 
-```
-gamze    çift çene    gözenek
-dimple   double chin  pore
-```
-Nothing is removed — not even junk such as watermark fragments — so you can decide what matters.
-Raw text appears in the editor under a *Raw text* heading.
+## Raw OCR
 
-## AI Smart mode
-1. Smart OCR runs first (this is the "ground truth").
-2. The picture **and** the OCR text are sent to your local model with strict rules: use exactly this structure,
-   include every visible item, never invent items, fix only clear OCR mistakes, ignore interface text.
-3. The answer is shown in the result card and in the editor:
+Raw is the comparison path when you want everything the OCR engine saw. It is intentionally less filtered than Smart and may include captions, interface text or watermark fragments.
+
+Use **Copy Original OCR** to preserve or compare this source text.
+
+## AI Smart
+
+AI Smart first runs Smart OCR. It sends the picture and OCR text to the local Ollama model, requesting:
 
 ```markdown
-# Skin Features          → main title      (Heading 1 in the editor)
-## Face                  → heading         (Heading 2)
-### Marks                → subheading      (Heading 3)
-- **gamze** — dimple     → bullet vocabulary: original — English
+# Main title
+## Heading
+### Subheading
+- **original phrase** — translation
 ```
-**If the model is not installed or cannot see images**, the app falls back automatically: first to text-only AI
-(OCR text without the picture), and if no AI is available at all, to the plain Smart result — with a message in the
-status bar. You never end up with an empty result. Setup: [Local AI](LOCAL_AI.md).
 
-## Accuracy levels (Smart and AI Smart)
+Afterwards, the program compares the AI output with the OCR pairs. Missing pairs are appended under **More vocabulary (from OCR)**.
 
-Under the mode switch, **Accuracy** decides how hard the program works to read **every** cell of a grid:
+If vision is unavailable, the model is retried with OCR text. If AI is unavailable, the Smart result remains visible.
 
-| Level | What it does | Use it when |
-|-------|--------------|-------------|
-| **Fast** | first pass only | a quick look; the text is large and clear |
-| **Balanced** *(default)* | first pass + **every grid cell re-read on its own** (finds missing and cut-off cells, rows and columns) | normal flashcards and posters |
-| **Deep** | Balanced + each cell is also read with the single-language model (fixes `ş ı ğ ç`); if cells are still doubtful or unreadable the picture is **read again at a larger scale** and the more complete result wins | small text, crowded cards, "something is missing" |
+## Accuracy
 
-### Coverage check
+| Level | Behaviour |
+|---|---|
+| **Fast** | First OCR pass only. |
+| **Balanced** | Cell-aware reading plus targeted dense-screenshot recovery. |
+| **Deep** | Balanced processing plus language-specific voting and larger-scale retry for difficult cells. |
 
-After Smart OCR the status bar reports what was found, for example
-`Bilingual table · Turkish → English · 12 pairs (4×3 grid) · confidence 93% · all cells read`.
-If something is doubtful you see `⚠ 1 cell(s) unreadable` or `⚠ 2 doubtful – try Deep OCR` instead of a silent gap.
+The status bar reports the detected structure, pair count, grid information and confidence/coverage warnings where available.
 
-### Raw is the complete capture
+## Select Area
 
-**Raw** never discards text: it combines sparse-text OCR with page-analysis OCR, keeps every word either found,
-and fixes accent-only differences (`kislik` → `kışlık`) with the Turkish-only model. Smart and AI Smart organise the
-text; they never replace it — the original is always one click away (**↻ Raw**, **Copy Original OCR**).
-
-### AI Smart never loses words
-
-The AI writes the title, headings and bullets, but afterwards the program compares the AI notes with the OCR table.
-Any OCR pair the AI left out is added under **More vocabulary (from OCR)**, and the status bar says how many.
-
-## ✂ Select Area
-
-Draw boxes on a picture to read only that part. By default the text is **added to the same image** (it stays
-*Image N* and uses no batch slot). The tool has zoom, fit, pan, rotate and crop.
-→ Full guide: **[Select Area Tool](SELECT_AREA.md)**
+Select Area uses the current mode and accuracy. Captures can be attached to the source image or turned into a separate image record. See [Select Area](SELECT_AREA.md).

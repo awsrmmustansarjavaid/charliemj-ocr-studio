@@ -1,60 +1,43 @@
 # Select Area Tool
 
-[← Back to main README](../README.md) · Related: [OCR Modes](OCR_MODES.md) · [Text Editor](EDITOR.md) · [Changelog](CHANGELOG.md)
+[← Main README](../README.md) · Related: [OCR Modes](OCR_MODES.md) · [Text Editor](EDITOR.md)
 
-Use **✂ Select Area** when only part of a picture matters, when a crowded layout confuses Smart OCR, or when you want
-to add more text to an image you have already read. Open it from the **preview panel** (or double-click the preview),
-or from the **✂ Area** button on any result card.
+Use **✂ Select Area** when only part of a screenshot matters or when a dense region benefits from a focused OCR pass. Open it from the preview panel, double-click the preview, or use **Area** on a result card.
 
-## What happens to the text you select
+## Area destinations
 
-Choose where the result goes with the three options at the top of the tool:
+| Destination | Behaviour |
+|---|---|
+| **This image** | The OCR result becomes an Area child of the source Image N. It stays grouped with the source image. |
+| **New image** | The selected region becomes its own queue item and result card. |
+| **Crop** | The source image is cropped; process it again with the normal OCR controls. |
 
-| Option | Result |
-|--------|--------|
-| **This image** *(default)* | The box is OCR'd and the text is **added to the image you opened the tool from**. It appears as **✂ Area 1, Area 2 …** under that image's card in panel 3 and as an **Area n** sub-heading under *Image N* in the editor. It does **not** use a slot of the batch limit. |
-| **New image** | The box becomes a new image right after the source (named `<file> · area n`) with its own card. This one counts against the batch limit. |
-| **Crop the image instead** | The picture itself is cropped to the box. Press **⚡ Process All** or **↻** on the card to read the cropped picture. |
+The current OCR mode and accuracy are used. Because the queue runtime is no longer application-capped, creating a new image does not depend on an old batch-limit setting.
 
-Areas are read in the **current OCR mode and accuracy level** (Smart, Raw or AI Smart; Fast, Balanced or Deep).
-Every area keeps its own **Copy**, **⇄ Swap** and **🗑 Remove** buttons, and you can draw as many boxes as you like — the
-tool stays open and numbers them 1, 2, 3 … in green.
+## Controls
 
-## The toolbar
-
-| Control | What it does |
-|---------|--------------|
-| **−  +** | zoom out / in (also keys `-` and `+`) |
-| **Fit** | the whole picture fits the window — **the default view** (never enlarged above 100 %) |
-| **Fit width** | the picture's width fills the window; scroll down a tall screenshot |
-| **100%** | one picture pixel = one screen pixel (key `1`) |
-| **⟲  ⟳** | rotate left / right |
-| **↶ Undo edit** | undo the last crop or rotation |
-| **Clear marks** | remove the green boxes from the screen (the OCR results stay) |
-| **Done** | close the tool (or press `Esc`) |
+- **− / +** zoom.
+- **Fit** and **Fit width** for large screenshots.
+- **100%** for one image pixel per displayed pixel.
+- Rotate left/right.
+- Crop and undo the last image edit.
+- Clear marks without deleting already captured OCR results.
+- Draw multiple boxes in one session.
 
 ## Mouse and keyboard
 
-| Action | How |
-|--------|-----|
-| Select a box | drag with the **left** mouse button |
-| Zoom at the pointer | `Ctrl` + mouse wheel |
-| Scroll | mouse wheel (with `Shift`: sideways) · scroll bars · arrow keys |
-| Pan | drag with the **right** or **middle** mouse button |
-| Fit / 100 % | `0` / `1` |
+- Left-drag: create a selection box.
+- `Ctrl` + mouse wheel: zoom around the pointer.
+- Mouse wheel / scroll bars: scroll.
+- Right or middle drag: pan.
+- `0`: Fit.
+- `1`: 100%.
+- `Esc`: close the selector.
 
-## Why it is fast now
+## Why it works well on large screenshots
 
-* Only the **visible part** of the picture is cut out and scaled, so huge screenshots zoom and pan instantly.
-* The boxes are stored in **original-picture pixels**: zooming never moves them, and the OCR always reads the
-  **full-resolution original**, never the zoomed preview.
-* The result cards are updated one card at a time instead of redrawing every image.
+The selector keeps box coordinates in original-image pixels and renders only the visible viewport. OCR reads the original-resolution crop, not a zoomed preview.
 
 ## Tips
 
-* Select **tightly around the text**. For one row or column of a grid, select that row or column.
-* A tall phone screenshot: press **Fit width**, scroll to the part you want, then select.
-* Selected a wrong box? Nothing is lost: remove the area with its **🗑** button.
-* Reached the batch limit? Areas sent to **This image** never count; only **New image** does.
-
-[Back to the OCR Modes guide →](OCR_MODES.md)
+Select tightly around the difficult text. For a crowded card grid, selecting one row or one column can make a focused recovery easier. Areas sent to **This image** remain attached to the source card and appear as Area headings in the editor.

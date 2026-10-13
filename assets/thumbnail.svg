@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">Charlie MJ OCR &amp; Language Studio</title>
+  <desc id="desc">Portable Windows OCR with complete screenshot OCR, Smart Raw and AI Smart modes, multi-language Tesseract, Select Area, local Ollama and a rich text editor.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111827"/>
+      <stop offset="0.55" stop-color="#312e81"/>
+      <stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.06"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="520" rx="34" fill="url(#bg)"/>
+  <circle cx="1060" cy="80" r="150" fill="#ffffff" opacity="0.05"/>
+  <circle cx="1140" cy="430" r="220" fill="#ffffff" opacity="0.04"/>
+  <text x="70" y="82" fill="#ffffff" font-family="Segoe UI, Arial, sans-serif" font-size="25" font-weight="700" letter-spacing="3">CHARLIE MJ OCR &amp; LANGUAGE STUDIO</text>
+  <text x="70" y="135" fill="#ffffff" font-family="Segoe UI, Arial, sans-serif" font-size="48" font-weight="800">Complete screenshot OCR.</text>
+  <text x="70" y="181" fill="#dbeafe" font-family="Segoe UI, Arial, sans-serif" font-size="24">Extract everything first. Organise second. Keep the original OCR.</text>
+
+  <g transform="translate(70 225)">
+    <rect width="330" height="205" rx="22" fill="url(#card)" stroke="#ffffff" stroke-opacity="0.14"/>
+    <text x="24" y="45" fill="#ffffff" font-family="Segoe UI, Arial, sans-serif" font-size="23" font-weight="800">OCR MODES</text>
+    <text x="24" y="82" fill="#e0e7ff" font-family="Segoe UI, Arial, sans-serif" font-size="20">✓ Smart — structured tables</text>
+    <text x="24" y="116" fill="#e0e7ff" font-family="Segoe UI, Arial, sans-serif" font-size="20">✓ Raw — complete OCR text</text>
+    <text x="24" y="150" fill="#e0e7ff" font-family="Segoe UI, Arial, sans-serif" font-size="20">✓ AI Smart — local AI notes</text>
+    <text x="24" y="184" fill="#a5f3fc" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="700">Fast · Balanced · Deep</text>
+  </g>
+
+  <g transform="translate(435 225)">
+    <rect width="330" height="205" rx="22" fill="url(#card)" stroke="#ffffff" stroke-opacity="0.14"/>
+    <text x="24" y="45" fill="#ffffff" font-family="Segoe UI, Arial, sans-serif" font-size="23" font-weight="800">LANGUAGE WORKSPACE</text>
+    <text x="24" y="82" fill="#e0e7ff" font-family="Segoe UI, Arial, sans-serif" font-size="20">✓ Multi-language Tesseract</text>
+    <text x="24" y="116" fill="#e0e7ff" font-family="Segoe UI, Arial, sans-serif" font-size="20">✓ Select Area + crop + zoom</text>
+    <text x="24" y="150" fill="#e0e7ff" font-family="Segoe UI, Arial, sans-serif" font-size="20">✓ Rich editor + exports</text>
+    <text x="24" y="184" fill="#a5f3fc" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="700">Portable Windows app</text>
+  </g>
+
+  <g transform="translate(800 225)">
+    <rect width="330" height="205" rx="22" fill="url(#card)" stroke="#ffffff" stroke-opacity="0.14"/>
+    <text x="24" y="45" fill="#ffffff" font-family="Segoe UI, Arial, sans-serif" font-size="23" font-weight="800">LOCAL AI + SAFETY</text>
+    <text x="24" y="82" fill="#e0e7ff" font-family="Segoe UI, Arial, sans-serif" font-size="20">✓ Ollama stays on your PC</text>
+    <text x="24" y="116" fill="#e0e7ff" font-family="Segoe UI, Arial, sans-serif" font-size="20">✓ OCR lossless AI merge</text>
+    <text x="24" y="150" fill="#e0e7ff" font-family="Segoe UI, Arial, sans-serif" font-size="20">✓ Unlimited OCR queue</text>
+    <text x="24" y="184" fill="#a5f3fc" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="700">No cloud OCR required</text>
+  </g>
+</svg>

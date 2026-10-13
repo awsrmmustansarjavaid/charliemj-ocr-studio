@@ -1,73 +1,71 @@
 # User Guide
 
-[← Back to main README](../README.md) · Previous: [Installation](INSTALLATION.md) · Next: [Testing](TESTING.md)
+[← Main README](../README.md) · Previous: [Installation](INSTALLATION.md) · Next: [Testing](TESTING.md)
 
-## The window — four panels
+## The four panels
+
 ```text
-┌ 1 INPUT ────┬ 2 PREVIEW ───┬ 3 OCR RESULTS ───────┬ 4 TEXT EDITOR ──────────────────┐
-│ Add / Shot  │  picture     │ Image 1  [thumb]     │ style  B I U S  A− 13 A+        │
-│ Paste/Folder│              │  Copy ↻Raw ↻Smart…   │ • List 1. List ⬅ ↔ ➡ 🎨 ― 🖍    │
-│ Batch 3/20  │ OCR mode:    │  ┌ table / text ───┐ │ ↶ ↷ 🔍 Sort  No dup  ⟳ ⤺        │
-│ 1. a.jpg ▲▼ │ Smart|Raw|AI │  └─────────────────┘ │ AI: Learn This · Clean · Table  │
-│     … Auto-update  ◀ Focus      │
-│ 2. b.jpg ▲▼ │ 🔍 Extract   │ ──────────────────── │ ┌─────────────────────────────┐ │
-│ 🗑 ↶        │ ✂ Select Area│ Image 2 …            │ │ Image 1  (title)            │ │
-│ ⚡ Process  │ ⚙ Settings   │ Copy All · Combine → │ │ Main title / headings       │ │
-│   All       │              │                      │ │ • word — translation        │ │
-└─────────────┴──────────────┴──────────────────────┴─┴─────────────────────────────┴─┘
+1 INPUT        → images, folder, paste, screenshot, queue and Process All
+2 PREVIEW      → image, Smart/Raw/AI Smart, Fast/Balanced/Deep, Extract, Select Area, Settings
+3 OCR RESULTS  → Image N cards, editable OCR, Copy, Smart, Raw, AI, Swap, Area, Delete
+4 TEXT EDITOR  → notes, formatting, Find/Replace, cleanup, AI actions and export
 ```
-Drag the thin dividers to resize panels, or press **◀ Focus** (panel 4) to hide panels 1–3.
 
-## First-time setup
-1. **⚙ Settings** → learning language (this picks the OCR language), your language, level.
-2. *(Optional)* install Ollama for AI → [Local AI](LOCAL_AI.md) → **Test AI connection**.
+## First use
 
-## Quick workflows
-### A. Many flashcards → finished notes
-1. **＋ Add Images** (select up to 20) or **📂 Add Folder**.
-2. Choose **Smart** and press **⚡ Process All**.
-3. Watch the cards fill in panel 3 and the **editor** build itself (*Image 1 → title → vocabulary bullets*).
-4. Check each card; use **⇄ Swap** if its columns are reversed.
-5. Polish in the editor, then **DOCX / HTML / MD / CSV**.
+1. Open **Settings** and choose the learning language and translation language.
+2. Add images or paste/capture a screenshot.
+3. Choose an OCR mode and accuracy level.
+4. Run **Extract Text** for one image or **Process All** for the queue.
+5. Review the result card and the automatically populated editor.
 
-### B. One part of a picture only
-1. Click the image, press **✂ Select Area**, drag a box, drag more boxes, press **Done**.
-2. By default each box is **added to the same image**: *✂ Area 1, 2 …* under its card and under *Image N* in the editor.
-3. Zoom with **− / + / Fit / Fit width / 100 %**, rotate, or **crop** the picture — see [Select Area](SELECT_AREA.md).
+## Recommended workflows
 
-### B2. Nothing may be missing
-Choose **Accuracy → Deep** under the mode switch. Read the status bar: *all cells read* means complete;
-*⚠ … try Deep OCR* tells you where to look. **Raw** always shows the complete text for comparison.
+### Complete flashcard set
 
-### C. Polished notes with headings (needs local AI)
-1. Choose **AI Smart** → **Process All** (it can take a minute per image).
-2. The editor shows *Main title → headings → subheadings → bullets*.
+1. Add the full image set. The application queue is not capped by the old batch-limit setting.
+2. Choose **Smart + Balanced** for normal use.
+3. Process all images.
+4. Check the pair/grid coverage shown by the status bar.
+5. Use **Deep** on difficult screenshots and **Raw** when you need to see every OCR word.
+6. Edit/export the final notes.
 
-### D. Get every word
-Choose **Raw** → **Process All**, or press **↻ Raw** on one card.
+### Dense screenshot
 
-## Managing the queue
-| Action | How |
-|--------|-----|
-| Preview | click a card (double-click the preview = Select Area) |
-| Reorder | ▲ ▼ — numbering follows |
-| Remove | tick boxes → **🗑 Selected** (nothing ticked = previewed image) · card **🗑** · **🗑 All** |
-| Undo | **↶ Undo** puts removed images back in their old positions |
-| Limit reached | remove an image, raise the limit in Settings, or select areas **into** an existing image (they do not count) |
+Use **Balanced** first. The program can perform a targeted 3× structural recovery when the initial OCR has many lines but fails to identify a reliable bilingual structure. Use Select Area if only a region is problematic.
 
-## Result cards (panel 3)
-Each card's text is **editable**. Editing a Smart table (fix a word) also updates the editor, because the editor
-re-reads the table. **Copy** copies that card; the buttons below copy all images (Markdown, plain, or original OCR).
+### AI study notes
 
-## Editor (panel 4)
-Full guide: [Text Editor](EDITOR.md). In one line: format, tidy (sort / duplicates / find), export.
+Choose **AI Smart**. Smart OCR runs first, then local Ollama produces titles, headings and vocabulary. Any OCR pairs omitted by the model are added under **More vocabulary (from OCR)**.
 
-## Tips for better OCR
-* Higher resolution = better OCR; avoid shrunk images.
-* Choose the right **learning language** in Settings before processing.
-* If a grid is crowded, use **✂ Select Area** on one row or column.
-* If Smart missed something, press **↻ Raw** on that card to see every word.
-* Local AI output can be wrong — check it, especially rare words and Urdu / Arabic / Persian diacritics.
+### Exact OCR capture
+
+Choose **Raw**. It is intentionally less filtered than Smart and is the best source for comparing what Tesseract saw.
+
+## Queue management
+
+Images can be reordered, removed, restored with Undo and processed again. The same OCR job path is used whether you click a card's Smart/Raw/AI button or Process All.
+
+## Result cards
+
+Each Image N card has editable text. **Swap** reverses bilingual table columns. **Area** opens the selector for focused OCR. **Copy Original OCR** preserves the Raw source for comparison.
+
+## Select Area
+
+Use zoom, fit, fit-width, 100%, pan, rotate and crop. Draw multiple boxes. By default an area is attached to its source Image N; it can also become a new image.
+
+See [Select Area](SELECT_AREA.md).
+
+## Editor
+
+The editor derives notes from OCR results until you edit it. It supports formatting, lists, alignment, Find/Replace, Sort A–Z, duplicate removal, Focus mode and Restore. Export to MD, TXT, HTML, DOCX or CSV.
+
+See [Text Editor](EDITOR.md).
+
+## Languages
+
+The portable bundle starts with English, Turkish, Urdu, Arabic and Persian. Installed Tesseract packs are discovered dynamically, and additional official packs can be installed on demand.
 
 ## Privacy
-OCR stays on your PC. The optional AI talks only to Ollama on `localhost`. Nothing is uploaded.
+
+OCR is local. Optional AI uses local Ollama. A requested language-pack installation is the only normal path that downloads language data from the internet.

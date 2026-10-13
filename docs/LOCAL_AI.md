@@ -1,63 +1,47 @@
 # Local AI (Ollama)
 
-[← Back to main README](../README.md) · Previous: [OCR Modes](OCR_MODES.md) · See also: [Security](SECURITY.md)
+[← Main README](../README.md) · Previous: [OCR Modes](OCR_MODES.md) · See also: [AI Guide](AI_GUIDE.md)
 
-AI is **optional**. OCR, Smart / Raw modes, the editor and all exports work without it. When you do want it, the
-model runs **on your own PC** through [Ollama](https://ollama.com): no cloud, no account, no API key. The app talks
-to Ollama only on `localhost` — any other address is refused by the code (`app/local_ai.py`).
+Ollama is optional. Smart OCR, Raw OCR, Select Area, the result cards, editor and exports work without it.
 
-## Setup (once)
-1. Install Ollama from <https://ollama.com> and let it run in the background.
-2. Open a terminal and run `ollama pull gemma3:4b` (about 3 GB; it can read pictures and writes decent Turkish).
-3. In the app: **⚙ Settings → Test AI connection**. You should see *✓ Ollama is running*. The status bar then
-   shows `AI: ✓ gemma3:4b`.
+## Setup
 
-| Your PC | Suggested model |
-|---------|-----------------|
-| 8 GB RAM, no GPU | `gemma3:4b` (slow but works) or `gemma3:1b` (text only, fast) |
-| 16 GB RAM / a GPU | `gemma3:4b` or a larger vision model |
+1. Install Ollama from [ollama.com](https://ollama.com).
+2. Pull a local model, for example `ollama pull gemma3:4b`.
+3. Open **Settings → Test AI connection** in Charlie MJ.
+4. Select the model you installed.
 
-The model name is free text in Settings — use any model you have installed (`ollama list`).
+The normal endpoint is `http://127.0.0.1:11434`. The application allows local Ollama endpoints only.
 
-## Where the AI is used
-| Place | What it does |
-|-------|--------------|
-| **AI Smart** mode | Smart OCR first, then picture + OCR text → main title, headings, subheadings, bullet vocabulary |
-| Editor **✨ Learn This** | notes: title, cleaned text, translation, vocabulary, grammar note |
-| **Clean** | fixes OCR mistakes only, keeps the structure (replaces the selection) |
-| **📊 Table** | turns messy text into `- **word** — meaning` bullets (replaces the selection) |
-| **Translate / Explain / Vocabulary / Flashcards** | add an answer at the end |
+## AI Smart
 
-Editor buttons work on the **selected lines**, or on the whole editor if nothing is selected.
+AI Smart runs Smart OCR first, then sends the image plus complete OCR text to the local model. The requested output is a main title, section headings, optional subheadings and bilingual vocabulary bullets. The model is told not to invent items or ignore visible vocabulary.
 
-## Safety rules built into every prompt
-* "Do not invent words that are not in the text; if unclear, keep it as written."
-* AI Smart receives the **OCR text as ground truth** and must include every visible item, copy words exactly and
-  ignore social-media interface text.
-* Answers are inserted as ordinary editable text — always double-check them.
+After the model returns, OCR pairs are compared with the AI result. Any missing OCR pair is appended under `## More vocabulary (from OCR)` so AI formatting cannot silently reduce the extracted vocabulary.
 
-## Automatic fallbacks (AI Smart)
-1. The model cannot see images → the request is repeated **text-only** with the OCR text.
-2. Ollama is not running / the model is missing → the **Smart result** is shown instead, with the reason in the status bar.
+If the model cannot accept images, the app retries with OCR text. If Ollama is unavailable, the Smart OCR result remains available.
+
+## Local AI Agents
+
+The **Local AI Agents** window provides:
+
+- **OCR Structure** — structure complete OCR plus the picture.
+- **Vocabulary** — extract every supplied bilingual pair without an entry cap.
+- **Study Tutor** — explain supplied OCR for the learner's level.
+
+## Editor AI buttons
+
+The editor provides **Learn This, Clean, Table, Translate, Explain, Vocabulary** and **Flashcards**. Actions operate on selected text or the full editor when there is no selection.
+
+## Reliability and privacy
+
+AI output is always editable and should be reviewed. Images and OCR are not sent to a cloud AI provider by this application. The only AI service is the user's local Ollama instance.
 
 ## Troubleshooting
+
 | Message | Fix |
-|---------|-----|
-| *Ollama is not running* | start Ollama (it normally starts with Windows) |
-| *Model 'x' is not installed* | `ollama pull x`, or choose an installed model in Settings |
-| Very slow | use a smaller model; close other programs; AI Smart takes a while per image on CPU |
-| Poor Turkish / Urdu answers | try another model; use Smart (no AI) and edit by hand |
-| *Only a local Ollama address is allowed* | use `http://127.0.0.1:11434` |
-
-## Adding your own AI button
-Open `app/prompts.py` and add an entry to `ACTIONS`:
-```python
-"Examples": (lambda t: ctx() + "Write 3 simple example sentences for: " + t, "append"),
-```
-`"append"` adds the answer at the end; `"replace"` replaces the selected lines. The button appears automatically.
-
-## AI Smart safety net (v1.3)
-A local model can skip an item. After every AI Smart answer the program compares the AI bullets with the Smart OCR
-table (names are compared at ≥ 80 % similarity, so a corrected letter does not count as missing) and appends any
-missing pair under **More vocabulary (from OCR)**. The status bar tells you how many items were added.
-The picture's title/subtitle counts too when *Also list the picture's title as a vocabulary item* is on.
+|---|---|
+| Ollama unavailable | Start Ollama and press **Check/Test AI connection** again. |
+| Model missing | Pull the model with `ollama pull <model>`. |
+| Vision not supported | Use a vision model or rely on the OCR-text fallback. |
+| Very slow | Use a smaller model or process without AI. |

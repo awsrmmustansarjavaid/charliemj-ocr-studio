@@ -1,0 +1,35 @@
+name: Import verified portable build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  import-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download the requested verified artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf artifact
+          gh run download 38412578017 --repo awsrmmustansarjavaid/charliemj-ocr-studio --name charliemj-ocr-studio-v2-final --dir artifact
+          test -f artifact/charliemj-ocr-studio-v2-final.zip
+          cp artifact/charliemj-ocr-studio-v2-final.zip downloads/CharlieMJ-OCR-Portable-v2.3.0.zip
+
+      - name: Commit the build and remove this temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads/CharlieMJ-OCR-Portable-v2.3.0.zip
+          git rm .github/workflows/import-verified-build.yml
+          git commit -m "Add verified v2.3.0 portable build"
+          git push

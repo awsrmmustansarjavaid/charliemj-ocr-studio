@@ -1,130 +1,70 @@
 # Architecture
 
-[← Back to main README](../README.md) · Previous: [Technologies](TECHNOLOGIES.md) · Next: [Security](SECURITY.md)
+[← Main README](../README.md) · Previous: [Technologies](TECHNOLOGIES.md) · Next: [Security](SECURITY.md)
 
-![Architecture](../assets/architecture.png)
+## Runtime flow
 
-## 1. Data flow
 ```mermaid
 flowchart LR
-    A["Input<br/>files · folder · clipboard · screenshot"] --> Q["Image queue<br/>(batch limit)"]
-    S["✂ Select Area"] --> Q
-    Q --> M{"OCR mode"}
-    M -->|Smart| SM["words + boxes → layout.analyze<br/>(table, title, fill cells)"]
-    M -->|Raw| RW["2 Tesseract passes → full_text"]
-    M -->|AI Smart| AI["Smart OCR + picture → local AI<br/>(title, headings, bullets)"]
-    SM --> C["Result cards (panel 3)<br/>editable Markdown per image"]
-    RW --> C
+    A["Images / folder / clipboard / screenshot"] --> Q["Unlimited OCR queue"]
+    A2["Select Area"] --> Q
+    Q --> J["Unified OCR job manager"]
+    J --> M{"Smart / Raw / AI Smart"}
+    M --> S["Smart: words + boxes → layout → cell recovery"]
+    M --> R["Raw: complete OCR text"]
+    M --> AI["AI Smart: Smart OCR + local Ollama"]
+    S --> C["Per-image result card"]
+    R --> C
     AI --> C
-    C -->|"auto, until you edit"| E["Text Editor (panel 4)<br/>Image N → title → headings → bullets"]
-    E --> X["Copy · MD · TXT · HTML · DOCX · CSV"]
-    E -->|"AI buttons"| AI2["Ollama (localhost)"]
-    AI2 --> E
-```
-The whole path from input to export works **offline**; local AI is optional.
-
-## 2. Modules (`app/`)
-| Module | Responsibility | Depends on |
-|--------|----------------|------------|
-| `config.py` | settings (`config.json`), paths, constants | — |
-| `layout.py` | structure detection, Markdown tables and notes, pair extraction — **pure Python** | — |
-| `ocr_engine.py` | Tesseract: words with boxes, Raw text, cell re-reading | `layout.Word`, Pillow, pytesseract |
-| `richtext.py` | document model (`Block`, `Run`) + exporters — **pure Python** | — |
-| `editor.py` | the formatted editor widget (`RichEditor`) | `richtext`, Tk |
-| `selector.py` | the Select Area tool: viewport rendering, zoom / fit / pan, rotate, crop, several boxes | Pillow, Tk |
-| `widgets.py` | `FlowFrame`: toolbars that wrap onto more rows on narrow panels | CustomTkinter |
-| `prompts.py` | prompts for the local AI | `config` |
-| `local_ai.py` | Ollama HTTP client (localhost only, stdlib `urllib`) | — |
-| `ui.py` | main window, queue, cards, threads, glue | all of the above |
-
-Pure-Python modules (`layout`, `richtext`) contain the logic that matters most and are fully unit-tested.
-
-## 3. Item model
-Every queue entry is a dict: `img, name, status, th, sel, kind (smart|raw|ai), md, raw, res, swap, tb`.
-`md` is the editable text of the result card; `res` is the `layout.Result`. **"Image N" is the position in the
-queue**, so numbering is automatic. The editor is *derived* from the items (`ui.editor_blocks`), never the other way.
-
-## 4. Editor model
-```mermaid
-flowchart LR
-    MD["Markdown notes"] -- md_to_blocks --> B["[Block]"]
-    B -- set_blocks --> W["tk.Text with tags"]
-    W -- get_blocks --> B
-    B --> O["blocks_to_md / _text / _html / write_docx / blocks_pairs"]
-```
-Formatting is stored as *semantic* tags (`b i u s sz_n fg_x bg_x p_h1 …`). Tk cannot combine "bold" and "size"
-tags, so `restyle()` adds one rendering tag per run (`r_<bold><italic>_<size>`) from the semantic ones.
-
-## 5. Concurrency
-Tkinter is single-threaded. OCR and AI run in worker threads (`ui.bg`); workers never touch widgets — they `post()`
-callbacks into a `queue.Queue` that the UI thread drains every 60 ms (`ui.poll`). Exceptions are caught and shown in
-the status bar. *Process All* uses one worker thread and processes images in order.
-
-## 6. Editor ↔ OCR synchronisation
-`auto_sync()` rebuilds the editor after OCR / delete / move / swap **only if the user has not edited it**
-(`editor.dirty`). **⟳ Update** forces a rebuild (after confirmation) and keeps a backup for **⤺ Restore**.
-
-## 7. Configuration and storage
-`config.json` and `tesseract/` live next to the `.exe` (`BASE`), so the app is portable. Images and notes exist
-only in memory until exported.
-
-## 8. Build and release
-```mermaid
-flowchart LR
-    A["Push / Run workflow"] --> B["windows-latest"]
-    B --> C["Python 3.11 + Tesseract (trimmed)"]
-    C --> D["Language data tur · urd · ara · fas · eng"]
-    D --> E["Unit tests (blocking)"]
-    E --> F["OCR integration test (informational)"]
-    F --> G["PyInstaller --onedir --noupx"]
-    G --> H["Defender scan + SHA256SUMS"]
-    H --> I["CharlieMJ-OCR-Portable.zip"]
+    C --> E["Text Editor"]
+    E --> X["Copy / MD / TXT / HTML / DOCX / CSV"]
 ```
 
-## 9. Error handling
-| Situation | Behaviour |
-|-----------|-----------|
-| Batch limit reached | warning; image not added |
-| OCR fails on one image | card marked **Error**; batch continues |
-| AI unavailable in AI Smart | falls back to text-only AI, then to the Smart result, with a status message |
-| AI error in an editor button | message in the status bar; text unchanged |
-| User edited the editor | automatic updates are paused; nothing is overwritten |
-| Missing `config.json` | defaults are used |
+Single-image buttons and **Process All** now enter the same OCR job path. The queue runtime can process every attached image, including an image that already has a result, and keeps explicit start/result/error handling and diagnostics.
 
-## 10. Extension points
-* **New AI button** → add an entry to `prompts.ACTIONS`.
-* **New OCR language** → add its `.traineddata` and an entry in `config.LANGS`.
-* **New export format** → add a writer in `richtext.py` and a branch in `RichEditor.write`.
-* **Different OCR engine** → replace `ocr_engine.read_words / read_raw` (return `layout.Word` lists).
+## Core modules
 
-## v1.3 additions
+| Module | Responsibility |
+|---|---|
+| `config.py` | Portable paths and persistent settings. |
+| `languages.py` | Installed-language discovery and official Tesseract language-pack installation. |
+| `ocr_engine.py` | Tesseract word boxes, confidence, Raw OCR and cell re-reading. |
+| `layout.py` | Deterministic structure detection, bilingual pairing, grid completion, notes and exports. |
+| `ocr_recovery.py` | Targeted 3× structural retry for dense screenshots that initially look like plain text. |
+| `batch_runtime.py` | Unified queue/job path, unlimited queue handling, cancellation, diagnostics and local-agent UI integration. |
+| `job_manager.py` | Explicit OCR job lifecycle. |
+| `local_ai.py` | Local Ollama client. |
+| `local_agents.py` | Local OCR Structure, Vocabulary and Study Tutor roles. |
+| `prompts.py` | AI Smart and editor-agent prompts. |
+| `selector.py` | Zoom, fit, pan, rotate, crop and multi-box area selection. |
+| `richtext.py` | Editor document model and MD/TXT/HTML/DOCX/CSV export. |
+| `editor.py` | Formatted text editor and AI actions. |
+| `ui.py` | Four-panel desktop interface and application state. |
 
-### Captured areas belong to their image
-```text
-item (Image N)
- ├── md / res / kind        the image's own result
- └── areas[]                records of the same shape ("parent" = the item, "n" = 1, 2, …)
-       ├── Area 1  ──►  OCR in the current mode  ──►  its own text box in the card
-       └── Area 2  ──►  …
-editor_blocks():  Image N (title) → file name → notes → "Area 1" (h3) + notes → "Area 2" … → separator
-```
-An area does **not** count against the batch limit; the **New image** target of the tool still creates a normal item.
+## OCR architecture
 
-### Grid completion pipeline (`layout.analyze` → `_lattice`)
-```text
-words → segments → pairs → orientation → heading
-      → lattice (columns by weighted fit, rows by spacing)
-      → every cell re-read by ocr_engine.make_cell_reader (wide crop, borders snapped to white gaps,
-        words kept by centre) → replaces the first reading
-      → missing rows between / above / below (accepted only if ≥ half of the columns read)
-      → Deep: single-language voting, second pass at larger scale
-      → coverage numbers (grid, unread, doubtful) → status bar
-```
+Smart OCR always begins with a **complete-image OCR pass**. Structure and deduplication happen after extraction; a vocabulary reference count is never used as an OCR cap.
 
-### Selector rendering
-Only the visible rectangle of the original picture is cropped and resized for every redraw
-(`AreaSelector.render`), boxes are kept in original-picture pixels, and OCR reads the original — see [Select Area](SELECT_AREA.md).
+Balanced mode can re-read every detected grid cell and the dense-screenshot recovery module can perform one bounded 3× structural retry when the first pass produces substantial text but no reliable table. Deep mode adds additional language-specific voting and larger-scale retry.
 
-### Thread safety
-Tk variables are never read inside worker threads (the accuracy level is read from the plain settings dict);
-workers only post callables to the UI queue.
+AI Smart is downstream of OCR. The local model may organise or correct obvious OCR mistakes, but the deterministic lossless merge compares the AI output with OCR pairs and restores missing pairs under **More vocabulary (from OCR)**.
+
+## Language architecture
+
+The application discovers installed Tesseract languages and exposes friendly names. Official `tessdata_fast` language packs can be downloaded into the portable `tesseract/tessdata` directory on demand. The initial bundle contains English, Turkish, Urdu, Arabic and Persian data; additional installed packs can become selectable.
+
+## Data model
+
+Each top-level queue item keeps its image, name, status, OCR text, structured result, editable Markdown and captured areas. Captured areas remain children of the source image unless the user explicitly creates a new image.
+
+`Image N` is derived from queue position, so deleting or reordering images renumbers cards and editor sections automatically.
+
+## Threading
+
+Tkinter widgets are only changed on the UI thread. OCR and AI work in background threads; results and errors are posted back to the UI queue. The job manager prevents overlapping OCR job sets and provides cancellation.
+
+## Build and verification
+
+GitHub Actions builds on Windows with Python 3.11, bundled Tesseract data, the complete unittest suite, an informational OCR integration test, PyInstaller, packaged-EXE startup smoke testing, Defender scanning and SHA-256 checksums.
+
+The current packaged build is produced as `charliemj-ocr-studio-v2-final.zip`.

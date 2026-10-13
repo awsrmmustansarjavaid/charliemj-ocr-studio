@@ -1,51 +1,50 @@
 # Features
 
-[← Back to main README](../README.md) · Previous: [Project Overview](PROJECT_OVERVIEW.md) · Next: [OCR Modes](OCR_MODES.md)
+[← Main README](../README.md) · Previous: [Project Overview](PROJECT_OVERVIEW.md) · Next: [OCR Modes](OCR_MODES.md)
 
-![UI concept](../assets/ui-mockup.png)
+## Input and queue
 
-*Early design mockup. The real application is shown in the [main README](../README.md).*
+- Add multiple images, add a folder, paste an image, or capture a screenshot.
+- Unlimited application queue; images can be reordered, removed and restored with Undo.
+- `F5` processes the queue, `Ctrl+O` adds images and `Ctrl+Enter` re-runs the selected image.
+- Progress, status and diagnostics show which image is running.
 
-## 1. Input
-Add Images (multi-select) · Add Folder · Paste (button or `Ctrl+V`) · Screenshot (drag a rectangle) ·
-✂ **Select Area** on any picture (zoom, fit, pan, rotate, crop; results are added to the same image). Batch limit 5 / 10 / 20 / 30 / 50 / 100 with Remove Selected / All / Undo.
+## Three OCR modes
 
-## 2. Image queue
-Numbered thumbnails (**Image 1, 2, 3…**), status (Waiting / Working / Done / Error), ▲ ▼ reordering.
-Numbers update automatically when images are deleted, undone or moved.
+- **Smart** — complete-image OCR followed by deterministic structure detection, bilingual pairing, heading detection and grid/cell recovery.
+- **Raw** — complete OCR text with no Smart layout filtering.
+- **AI Smart** — Smart OCR plus optional local Ollama formatting into titles, headings, subheadings and vocabulary bullets.
 
-## 3. Three OCR modes → [OCR Modes](OCR_MODES.md)
-**Smart** (structure → table) · **Raw** (every word) · **AI Smart** (title, headings, subheadings, bullets).
+All three modes share the same OCR job pipeline for batch and per-image buttons.
 
-## 4. Per-image result cards (panel 3)
-Thumbnail, *Image N* title, file name, status, editable text, break line between images, and per-image
-**Copy · ↻ Raw · ↻ Smart · ↻ AI · ⇄ Swap · 🗑**. Panel buttons: Copy Selected / All / Plain / Original OCR, Clear,
-🧩 Combine → Editor.
+## Accuracy levels
 
-## 5. Text Editor (panel 4) → [Text Editor](EDITOR.md)
-Automatic *Image N → title → headings → bullets* · bold, italic, underline, strike, size, colour, highlight ·
-bullets, numbering, alignment, separator · find & replace · sort A–Z · remove duplicates · zoom · focus mode ·
-protected user edits with Restore · export MD / TXT / HTML / DOCX / CSV.
+- **Fast** — first OCR pass.
+- **Balanced** — first pass plus cell re-reading and targeted dense-screenshot recovery.
+- **Deep** — additional language-specific voting and larger-scale retry for difficult cells.
 
-## 6. Smart OCR engine → [Smart OCR](SMART_OCR.md)
-Word positions + confidence, grid / pair / heading detection, caption and watermark rejection, missing-cell
-recovery, language-aware second reading of each cell (ş ı ğ ç), phone-UI noise filter, dark-theme handling.
+The goal is complete screenshot coverage first; organisation and deduplication happen after extraction.
 
-## 7. Local AI (optional) → [Local AI](LOCAL_AI.md)
-Ollama on your own PC: AI Smart mode plus editor buttons *Learn This, Clean, Table, Translate, Explain,
-Vocabulary, Flashcards*. No account, no API key, no cloud; only localhost is allowed.
+## Language support
 
-## 8. Settings
-Learning language, your language, level, batch limit, minimum OCR confidence, theme, Ollama address and model,
-**Test AI connection**. Saved in `config.json` next to the app.
+Tesseract languages are discovered from installed language packs. The portable build starts with English, Turkish, Urdu, Arabic and Persian data, and additional official `tessdata_fast` packs can be installed on demand.
 
-## 9. Portable & safe → [Security](SECURITY.md)
-One folder with an `.exe`; no installer, admin rights, registry entries or auto-start; pinned dependencies,
-checksums, Defender scan in the build.
+## Select Area
 
-## v1.3 additions
-* **Complete flashcards** — every grid cell is read on its own; missing rows / columns are recovered; the title counts as vocabulary → [Smart OCR](SMART_OCR.md)
-* **Accuracy levels** Fast / Balanced / Deep and a **coverage check** in the status bar → [OCR Modes](OCR_MODES.md)
-* **Select Area 2.0** — zoom, fit, pan, rotate, crop, several boxes, results added to the same image → [Select Area](SELECT_AREA.md)
-* **AI Smart safety net** — OCR pairs the AI leaves out are added back
-* **Wrapping toolbars** and screen-aware panel widths; progress bar; shortcuts `F5`, `Ctrl+O`, `Ctrl+Enter`
+Zoom, fit, fit-width, 100%, pan, rotate, crop and draw multiple boxes. By default each captured area is added to its source image and does not create a separate queue entry.
+
+## OCR result cards
+
+Each image has its own editable result card with thumbnail, status and **Copy / Smart / Raw / AI / Swap / Area / Delete** controls. Original OCR remains available through **Copy Original OCR**.
+
+## Text Editor
+
+Automatically builds Image N sections, headings and vocabulary bullets. Includes rich formatting, find/replace, sorting, duplicate removal, focus mode, protected user edits and Restore. Exports MD, TXT, HTML, DOCX and CSV.
+
+## Local AI
+
+Ollama is optional and local-only. AI Smart has a lossless OCR safety net. Local AI Agents include OCR Structure, Vocabulary and Study Tutor.
+
+## Portable Windows build
+
+No installer or admin rights are required. The Windows workflow bundles Tesseract, runs tests, smoke-tests the frozen EXE, performs a Defender scan when available and writes SHA-256 checksums.

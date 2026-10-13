@@ -1,88 +1,63 @@
 # Text Editor (Panel 4)
 
-[← Back to main README](../README.md) · Previous: [OCR Modes](OCR_MODES.md) · Next: [Technologies](TECHNOLOGIES.md)
+[← Main README](../README.md) · Previous: [OCR Modes](OCR_MODES.md) · Next: [Technologies](TECHNOLOGIES.md)
 
-The editor is where the OCR results become **finished study notes**. It fills itself automatically — you only
-polish and export.
+Panel 4 turns OCR results into editable study notes. It updates automatically while the document is still under application control; once you edit the document, your edits are protected from automatic OCR refreshes.
 
-## What appears automatically
-For every processed image, in queue order:
+## Automatic structure
 
+For each queue image the editor can show:
+
+```text
+Image 1
+file-name.png
+Main title
+Heading / section
+Vocabulary
+• original — translation
+
+Image 2
+...
 ```
-Image 1                      ← Title style (the image number, updates on delete / reorder)
-Screenshot_2026….jpg         ← small grey file name
-ELDİVEN ÇEŞİTLERİ            ← Heading 1  (main title found in the picture / by AI)
-Types of Gloves              ← Heading 3  (subtitle)
-Vocabulary                   ← Heading 2
-• kışlık eldiven — winter gloves     ← bullets, original in bold
-• muayene eldiveni — medical gloves
-──────────────────────────  ← separator line
-Image 2 …
-```
-* **Smart** → title, *Vocabulary* heading, bullets. **Raw** → *Raw text* heading + paragraphs.
-  **AI Smart** → the model's title / headings / subheadings / bullets.
-* The editor is rebuilt after every OCR run, delete, move, swap — **until you edit it yourself**.
 
-## Your edits are protected
-| State | Meaning |
-|-------|---------|
-| *Auto-update* ✔ and not edited | the editor follows the OCR results live |
-| You typed or formatted something | the editor is marked **✎ edited by you**; OCR updates no longer overwrite it |
-| **⟳ Update from OCR** | rebuilds the editor (asks first if you have edits) |
-| **⤺ Restore** | brings back the text that the last update replaced |
+- **Smart** results become title + vocabulary notes.
+- **Raw** results become a Raw text section.
+- **AI Smart** preserves the model's title, headings, subheadings and bullets.
+- Captured **Area 1, Area 2, ...** results remain under their source image.
 
-## Toolbar reference
-| Row | Controls |
-|-----|----------|
-| 1 | **Style** (Normal, Title, Heading 1–3) · **B** bold · **I** italic · **U** underline · **S** strike · **A−** / size / **A+** |
-| 2 | **• List** · **1. List** · align left / centre / right · **🎨 Color** · **― Line** · **Clear fmt** · **🖍 Highlight** (yellow, green, pink, blue) |
-| 3 | undo / redo · **🔍 Find** · **Sort A–Z** · **No duplicates** · **⟳ Update from OCR** · **⤺ Restore** |
-| 4 | AI buttons: ✨ Learn This · Clean · 📊 Table · Translate · Explain · Vocabulary · Flashcards — and, on the right, the **Auto-update** switch and the **◀ Focus** button |
+## Formatting
 
-Formatting applies to the **selection**; with no selection it applies to the **word under the cursor**
-(or the whole line for sizes and colours).
+The editor supports title/heading styles, bold, italic, underline, strike, font size, text colour, highlights, bullets, numbered lists, alignment and separator lines.
 
-### Lists that behave
-* **Enter** on a bullet starts the next bullet; on a numbered line it starts the next number.
-* **Enter** on an empty bullet ends the list.
-* Select several lines and press **• List** / **1. List** to convert them; press again to remove it.
+## Editing tools
 
-### Advanced tools
-* **Find & Replace** (`Ctrl+F`): match case, find next, replace, replace all.
-* **Sort A–Z**: sorts every bullet list alphabetically (formatting is kept).
-* **No duplicates**: removes repeated lines (same text, ignoring case) — handy when several cards share a word.
-* **Zoom**: `Ctrl + mouse wheel`.
-* **◀ Focus**: hides panels 1–3 so the editor fills the window; click again to bring them back.
-* **Resize panels**: drag the thin dividers between panels.
-* **Counters**: words, lines and bullets are shown above the text.
+- Find and replace.
+- Sort vocabulary lists A–Z.
+- Remove duplicate lines.
+- Undo/redo.
+- Auto-update from OCR with **Restore** for the previous editor state.
+- **Focus** mode hides the first three panels.
+- `Ctrl` + mouse wheel changes editor zoom.
+- `Ctrl+B`, `Ctrl+I`, `Ctrl+U`, `Ctrl+F`, `Ctrl+Z`, `Ctrl+Y`, `Ctrl+A` are supported where applicable.
 
-### Shortcuts
-`Ctrl+B` bold · `Ctrl+I` italic · `Ctrl+U` underline · `Ctrl+F` find · `Ctrl+Z / Ctrl+Y` undo / redo · `Ctrl+A` select all · `Ctrl + wheel` zoom
+## Local AI actions
 
-## AI buttons
-They act on the **selected lines**, or on the **whole editor** if nothing is selected. *Clean* and *Table* replace the
-text; the others add their answer at the end. Needs the local AI — see [Local AI](LOCAL_AI.md).
+**Learn This, Clean, Table, Translate, Explain, Vocabulary,** and **Flashcards** use the configured local Ollama model. They work on selected text or on the whole editor when no selection exists.
 
 ## Copy and export
-| Button | Result |
-|--------|--------|
-| Copy All / Copy Selected / Copy Markdown | clipboard |
-| **Save .md** | Markdown (`# Image 1`, `## main title`, `### heading`, `- **word** — meaning`) |
-| **TXT** | plain text with bullets |
-| **HTML** | a styled web page (bold, colours, sizes, bullet lists) |
-| **DOCX** | a Word document with the formatting (no extra software needed to create it) |
-| **CSV** | `Image, Original, Translation` from the vocabulary bullets, duplicates removed — import into Anki / Excel |
 
-All files are UTF-8, so Turkish, Urdu, Arabic and Persian letters stay intact.
+Panel 3 provides Copy Selected, Copy All, Copy Plain and Copy Original OCR. The editor exports:
 
-## Limits
-* Bullets and numbers are text prefixes, so in Word they are typed characters rather than Word list objects.
-* No pictures or tables inside the editor (vocabulary tables become bullets).
-* The Windows clipboard receives plain text, not formatted text; use HTML or DOCX export to keep formatting.
+- Markdown (`.md`)
+- plain text (`.txt`)
+- HTML (`.html`)
+- Word (`.docx`)
+- CSV vocabulary pairs (`.csv`)
 
-## Captured areas and the toolbar (v1.3)
-* Text taken with **✂ Select Area → This image** appears under that image as an **Area n** sub-heading with its own bullets
-  (the *Vocabulary* heading is not repeated). Remove an area with its **🗑** button in panel 3 and the editor follows.
-* The toolbar is one **flowing strip**: on a narrow panel it wraps onto extra rows instead of being cut off.
-* Loading is much faster: fonts are assigned while the text is inserted, and a backup for **⤺ Restore** is made only
-  when you have edited the text yourself.
+CSV extraction uses the standard `- **original** — translation` vocabulary shape. Unicode text such as Turkish, Urdu, Arabic and Persian remains UTF-8.
+
+## Captured areas
+
+A Select Area capture sent to **This image** is represented as an Area child of the source image. Removing an area removes it from both the result card and the derived editor notes.
+
+The editor is a presentation layer over OCR records; it does not replace the stored OCR source. This keeps Raw OCR available for comparison and correction.

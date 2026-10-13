@@ -1,1 +1,0 @@
-Build failure identified: app/layout.py is malformed at line 2. This marker records the repair in progress.

@@ -2,54 +2,43 @@
 
 [← Main README](../README.md) · Next: [Features](FEATURES.md)
 
-## What is this program?
+**Charlie MJ OCR & Language Studio v2.3.0** is a portable Windows desktop OCR workspace for language-learning screenshots, flashcards, posters and other image-based vocabulary material.
 
-**Charlie MJ OCR & Language Studio** is a lightweight, portable Windows desktop application for language learners. It reads text from pictures (flashcards, social-media vocabulary posts, textbook pages, screenshots) and — unlike an ordinary OCR tool — **understands the layout**. A card that shows a Turkish word with its English translation underneath becomes a row in a clean two-column table, not a jumble of words.
+## What makes it different
 
-It ships as **one folder with an `.exe`**: no installer, OCR works fully offline, and the optional AI runs **locally on your own PC** (through Ollama) — nothing is sent to the cloud.
+Ordinary OCR returns text without its visual relationship. Charlie MJ keeps word positions, detects bilingual structure and can re-read grid cells so a screenshot becomes organised study material instead of one long text block.
 
-## Why was it built?
+The core rule is **extract completely first, organise second**. Smart structure, AI formatting and deduplication are downstream transformations; the original Raw OCR remains available.
 
-The author learns several languages (Turkish, Urdu, Arabic, Persian, English) from downloaded flashcards. The old workflow was:
+## Main workflow
 
-1. Look at a flashcard image and **type every word by hand**, or ask an online AI and paste the answer back.
-2. Format the notes manually.
-3. Repeat for dozens of images.
+1. Add images, a folder, a pasted image or a screenshot.
+2. Choose **Smart, Raw or AI Smart** and **Fast, Balanced or Deep**.
+3. Process one image or the whole queue.
+4. Review each Image N result card and captured areas.
+5. Let the editor build study notes, then edit/copy/export.
 
-The first version of this tool added OCR, but the result was **messy**: plain OCR returns one long string and destroys the relationship between words ("kışlık eldiven" and "winter gloves" end up in different places). Version 1.1 fixed the root cause by keeping **word positions** and rebuilding the structure; version 1.2 adds three OCR modes, an area-selection tool and a text editor for the final notes.
+## Current capabilities
 
-![Before and after](../assets/smart-ocr-before-after.png)
-
-## Goals
-
-| Goal | How it is met |
-|------|---------------|
-| No manual typing | Screenshot / paste / add images → OCR |
-| No messy output | **Smart OCR**: word positions → pairs → aligned table |
-| Easy to review | One card per image: **Image 1, Image 2, …** with separators |
-| Handle batches | Queue (default 20), Process All, reorder, delete, undo |
-| Easy copying | Copy per image, selected, all, plain, original OCR |
-| Private & safe | Offline OCR, local AI only (localhost), no telemetry, pinned dependencies |
-| Clean, complete vocabulary | **Smart** (table) / **Raw** (every word) / **AI Smart** (title, headings, bullets) modes |
-| OCR only the part you need | **✂ Select Area** tool (zoom, fit, crop): each box is added to the image it came from |
-| Ready-to-use study notes | **Text Editor** panel: automatic *Image N → title → headings → bullets*, formatting, DOCX / HTML / CSV export |
-| Lightweight & portable | Python + Tkinter + Tesseract; no Electron, no bundled AI models |
-
-## Non-goals (for now)
-
-- Not a full spaced-repetition app (see [Roadmap](ROADMAP.md)).
-- Not a cloud service: no account, server or database.
-- Not a dictionary — AI answers must be double-checked.
+- Unlimited application OCR queue and a unified job pipeline for single-image and batch processing.
+- Complete-image OCR with dense-screenshot recovery and grid/cell re-reading.
+- Dynamic Tesseract language discovery and on-demand official language-pack installation.
+- Select Area with zoom, fit, pan, rotate, crop and multiple boxes.
+- Rich text editor with protected user edits, Find/Replace, Sort, duplicate removal, Focus and Restore.
+- Markdown, TXT, HTML, DOCX and CSV export.
+- Optional local Ollama AI Smart and three local AI agents.
+- Portable Windows packaging with bundled Tesseract, tests, EXE startup smoke testing, Defender scan and SHA-256 checksums.
 
 ## Design principles
 
-1. **Extract, then understand, then organise.** OCR extracts words with positions; a deterministic layout step finds structure; AI is only an optional helper. AI never silently rewrites OCR.
-2. **Local first.** OCR and AI both run on your PC.
-3. **Every step is optional.** Screenshot → OCR → Copy works in two clicks.
-4. **Never lose the original.** Raw mode and "Copy Original OCR" always give the untouched text.
-5. **Portable and unsurprising.** Settings live next to the `.exe`; nothing is installed or registered.
+1. **Do not lose OCR information.** Raw remains available and AI omissions are restored from OCR.
+2. **Keep OCR deterministic.** Smart structure is based on positions and confidence; AI is optional.
+3. **Keep AI local.** Ollama runs on the user's machine.
+4. **Keep the app portable.** Settings live beside the executable.
+5. **Keep the UI responsive.** OCR and AI work outside the Tkinter UI thread.
 
-## Related documents
-[Features](FEATURES.md) · [Smart OCR](SMART_OCR.md) · [Local AI](LOCAL_AI.md) · [Technologies](TECHNOLOGIES.md) · [Architecture](ARCHITECTURE.md) · [Installation](INSTALLATION.md) · [User Guide](USER_GUIDE.md) · [Security](SECURITY.md) · [Testing](TESTING.md) · [Roadmap](ROADMAP.md)
+## Non-goals
 
-New in v1.2: [OCR Modes](OCR_MODES.md) · [Text Editor](EDITOR.md) · [Changelog](CHANGELOG.md)
+The project is not a cloud OCR service, does not require an online account, and is not intended to replace a full spaced-repetition platform.
+
+See [Architecture](ARCHITECTURE.md), [OCR Modes](OCR_MODES.md), [User Guide](USER_GUIDE.md) and [Roadmap](ROADMAP.md) for details.
