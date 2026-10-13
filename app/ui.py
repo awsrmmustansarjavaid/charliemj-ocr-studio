@@ -151,7 +151,7 @@ class App(ctk.CTk):
         f = FlowFrame(p)
         f.pack(fill="x", padx=4, pady=(2, 8))
         for txt, cmd in [("Copy Selected", self.copy_sel), ("Copy All", lambda: self.copy(self.combined_text())),
-                         ("Copy Plain", lambda: self.copy(layout.to_plain(self.combined_text())),
+                         ("Copy Plain", lambda: self.copy(layout.to_plain(self.combined_text()))),
                          ("Copy Original OCR", lambda: self.copy(self.combined_text("raw"))),
                          ("🧩 Combine → Editor", lambda: self.sync_editor(True)), ("Clear", self.clear_all)]:
             f.add(ctk.CTkButton(f, text=txt, width=118, height=28, command=cmd))
