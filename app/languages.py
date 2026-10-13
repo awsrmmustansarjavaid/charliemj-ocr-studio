@@ -40,7 +40,7 @@ def installed_codes() -> list[str]:
     if os.path.isdir(tessdata):
         for name in os.listdir(tessdata):
             if name.endswith(".traineddata"):
-                codes.add(name[:-11])
+                codes.add(name[:-12])
     try:
         import pytesseract
         codes.update(pytesseract.get_languages(config=""))
