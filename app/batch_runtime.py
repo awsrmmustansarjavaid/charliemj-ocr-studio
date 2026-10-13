@@ -1,7 +1,7 @@
 """Reliable unlimited-queue OCR runtime and per-image job integration.
 
-The existing four-panel UI remains intact.  All top-level images are eligible
-for processing, regardless of their previous status.  Individual OCR and batch
+The existing four-panel UI remains intact. All top-level images are eligible
+for processing, regardless of their previous status. Individual OCR and batch
 OCR use the same job manager so every image gets explicit start/result/error
 handling and diagnostics.
 """
@@ -165,6 +165,17 @@ def _ocr_current_force(self):
     return _start_jobs(self, [self.items[self.current]], self.mode.get())
 
 
+def _run_ocr_unified(self, rec, mode):
+    """Run a card's Smart/Raw/AI button through the same manager as batch OCR.
+
+    The original UI.run_ocr used App.bg directly, which meant clicking a card
+    button took a different execution path from Process All. That made an
+    individual image appear to finish without receiving the same committed
+    result handling. All OCR entry points now share _start_jobs().
+    """
+    return _start_jobs(self, [rec], mode)
+
+
 def _cancel_ocr(self):
     manager = getattr(self, "_ocr_job_manager", None)
     if manager and manager.running:
@@ -209,7 +220,7 @@ def _open_agents(self):
                 status.configure(text=f"✓ Ollama connected • {len(names)} model(s) available • selected: {cfg['model']}")
             else:
                 status.configure(text=f"✕ Ollama unavailable: {msg}. Start Ollama, then press Check again.")
-        app.bg(lambda: local_agents.status(cfg["ollama_url"]), done,
+        app.bg(lambda: local_agents.status(), done,
                lambda msg: status.configure(text=f"✕ Ollama diagnostic failed: {msg[:220]}"))
 
     ctk.CTkButton(top, text="Check", width=90, command=check).pack(side="right", padx=(8, 0))
@@ -281,6 +292,7 @@ def install(AppClass):
     AppClass.refresh_all = _refresh_all_unlimited
     AppClass.process_all = _process_all_everything
     AppClass.ocr_current = _ocr_current_force
+    AppClass.run_ocr = _run_ocr_unified
     AppClass.cancel_ocr = _cancel_ocr
     AppClass._open_agents = _open_agents
     AppClass.build_queue = _build_queue_unlimited
