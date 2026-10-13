@@ -153,16 +153,17 @@ class StudyWorkspaceWindow(ctk.CTkToplevel):
         if not path: return
         try: manifest = load_project(path)
         except Exception as exc: messagebox.showerror("Project", str(exc)); return
-
         if self.app.items and not messagebox.askyesno("Open project", "Replace the current OCR queue with this project?"): return
-        self.app.remove_all() if self.app.items else None
+        if self.app.items:
+            self.app.save_cards(); self.app.items = []; self.app.removed = []; self.app.clear_preview()
         loaded = []
+        image_by_name = {x.get("name"): x for x in manifest.get("images", []) if isinstance(x, dict)}
         for item_meta in manifest.get("items", []):
-            entry = next((x for x in manifest.get("images", []) if x.get("name") == item_meta.get("name")), None)
+            entry = image_by_name.get(item_meta.get("name"))
             if not entry: continue
             try:
                 img = Image.open(os.path.join(path, entry["file"])).convert("RGB")
-                item = self.app.add_image(img, item_meta.get("name", entry.get("file", "image")), show=False)
+                item = self.app.add_image(img, item_meta.get("name", "image"), show=False)
                 if item:
                     item.update(kind=item_meta.get("kind", ""), md=item_meta.get("md", ""), raw=item_meta.get("raw", ""), status="done" if item_meta.get("md") else "waiting")
                     loaded.append(item)
