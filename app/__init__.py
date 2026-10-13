@@ -29,32 +29,18 @@ def _install_lossless_merge():
     if getattr(layout, "_lossless_merge_installed", False):
         return
 
-    def norm(text):
-        return re.sub(r"\s+", " ", str(text).strip()).casefold()
-
-    def pair_similarity(a, b):
-        """Require both OCR columns to survive an AI rewrite without collapsing numbered pairs."""
-        left_a, left_b = norm(a[0]), norm(b[0])
-        right_a, right_b = norm(a[1]), norm(b[1])
-
-        # Exact normalized pair identity is authoritative.
-        if left_a == left_b and right_a == right_b:
-            return 1.0
-
-        # Permit harmless OCR/AI substitutions such as Turkish diacritics being
-        # dropped ("bahçe" -> "bahce"), but do not let strings such as
-        # "word12" match "word1" merely because SequenceMatcher scores highly.
-        if len(left_a) != len(left_b) or len(right_a) != len(right_b):
-            return 0.0
-
-        left = difflib.SequenceMatcher(None, left_a, left_b).ratio()
-        right = difflib.SequenceMatcher(None, right_a, right_b).ratio()
-        return min(left, right)
+    original = layout.merge_missing
 
     def merge_missing(md, rows, extra=()):
         """Append every OCR pair absent from AI markdown and return the exact count."""
-        existing = layout.extract_pairs(md)
-        existing_keys = {(norm(a), norm(b)) for a, b in existing if len((a, b)) >= 2}
+        existing = extract_pairs(md)
+
+        # Normalize only whitespace/case. Pair identity remains two-dimensional:
+        # both the source and translation must match. A conservative fuzzy check
+        # is retained for same-length OCR substitutions, while length differences
+        # prevent word1/word12-style false matches.
+        def norm(text):
+            return re.sub(r"\s+", " ", str(text).strip()).casefold()
 
         candidates = []
         seen = set()
@@ -70,11 +56,25 @@ def _install_lossless_merge():
         missing = []
         for pair in candidates:
             key = (norm(pair[0]), norm(pair[1]))
-            if key in existing_keys:
-                continue
-            if any(pair_similarity(pair, have) >= 0.80 for have in existing):
-                continue
-            missing.append(pair)
+            preserved = False
+            for have in existing:
+                have_key = (norm(have[0]), norm(have[1]))
+                if key == have_key:
+                    preserved = True
+                    break
+
+                # Do not let numbered entries such as word12/meaning12 match
+                # word1/meaning1 merely because SequenceMatcher scores highly.
+                if (len(key[0]) != len(have_key[0]) or
+                        len(key[1]) != len(have_key[1])):
+                    continue
+                left = difflib.SequenceMatcher(None, key[0], have_key[0]).ratio()
+                right = difflib.SequenceMatcher(None, key[1], have_key[1]).ratio()
+                if min(left, right) >= 0.80:
+                    preserved = True
+                    break
+            if not preserved:
+                missing.append(pair)
 
         if not missing:
             return md, 0
@@ -85,7 +85,14 @@ def _install_lossless_merge():
             len(missing),
         )
 
-    layout.merge_missing = merge_missing
+    # Mutate the original function object as well as the module attribute. This
+    # matters when another module imported merge_missing before package init
+    # completed; those references must receive the same lossless behavior.
+    layout.__dict__["extract_pairs"] = layout.extract_pairs
+    original.__code__ = merge_missing.__code__
+    original.__defaults__ = merge_missing.__defaults__
+    original.__doc__ = merge_missing.__doc__
+    layout.merge_missing = original
     layout._lossless_merge_installed = True
 
 
